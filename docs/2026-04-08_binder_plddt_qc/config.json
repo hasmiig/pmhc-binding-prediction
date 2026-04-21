@@ -1,0 +1,27 @@
+{
+    "date": "2026-04-08",
+    "analyst": "Hasmig Aintablian",
+    "mode": "binder",
+    "scripts": {
+        "compute": "compute_plddt_means.py",
+        "analyse": "analyse_plddt.py"
+    },
+    "commands": {
+        "compute": "python compute_plddt_means.py --mode binder --base /projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs",
+        "analyse": "python analyse_plddt.py  (MODE='binder')"
+    },
+    "settings": {
+        "threshold": 80,
+        "chunks": 41,
+        "selection": "best structure per allele-peptide pair based on max(pep_mean_plddt, anchor_mean_plddt)"
+    },
+    "cluster": {
+        "partition": "soeding",
+        "mem": "32GB",
+        "cpus": 4,
+        "time": "12:00:00"
+    },
+    "input": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/binder/",
+    "output_csv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/binder/plddt_means_binder.csv",
+    "output_best_csv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/binder/plddt_means_binder_best.csv"
+}

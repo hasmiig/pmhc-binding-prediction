@@ -1,0 +1,4 @@
+stage,total_rows,unique_alleles,min_per_allele,p25_per_allele,median_per_allele,p75_per_allele,max_per_allele,alleles_at_cap,alleles_below_cap
+"RAW (Non-binders, class I)",42727479,266,1,682,4821,123415,2322724,191,75
+"POST-PHASE 1 (Non-binders, MHC balanced)",215108,266,1,682,1000,1000,1000,191,75
+"POST-PHASE 2 (Non-binders, anchor balanced)",120123,266,1,273,491,657,761,0,266

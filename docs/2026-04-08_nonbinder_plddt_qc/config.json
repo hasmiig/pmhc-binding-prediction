@@ -1,0 +1,26 @@
+{
+    "date": "2026-04-08",
+    "analyst": "Hasmig Aintablian",
+    "mode": "nonbinder",
+    "scripts": {
+        "compute": "compute_plddt_means.py",
+        "analyse": "analyse_plddt.py"
+    },
+    "commands": {
+        "compute": "python compute_plddt_means.py --mode nonbinder --base /projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/Amir/PMGen/outputs/hasmig/non_binders/chunk_outputs --output /projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/nonbinders",
+        "analyse": "python analyse_plddt.py  (MODE='nonbinder')"
+    },
+    "settings": {
+        "threshold": 80,
+        "chunks": 31,
+        "selection": "both structures kept for now"
+    },
+    "cluster": {
+        "partition": "soeding",
+        "mem": "32GB",
+        "cpus": 4,
+        "time": "12:00:00"
+    },
+    "input": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/Amir/PMGen/outputs/hasmig/non_binders/chunk_outputs/",
+    "output_csv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/nonbinders/plddt_means_nonbinder.csv"
+}

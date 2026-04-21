@@ -1,0 +1,3 @@
+stage,total_rows,unique_alleles,min_per_allele,p25_per_allele,median_per_allele,p75_per_allele,max_per_allele,alleles_at_cap,alleles_below_cap
+"RAW (Binders, class I)",1137039,459,1,7,81,1384,100684,128,331
+"POST-PHASE 1 (Binders, MHC balanced)",163948,459,1,7,81,1000,1000,128,331

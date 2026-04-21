@@ -1,0 +1,22 @@
+{
+    "date": "2026-03-27",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "input_prep": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/scripts/02_structure_prediction/prepare_pmgen_input.py",
+        "chunking": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/scripts/02_structure_prediction/chunk_tsv.py"
+    },
+    "settings": {
+        "chunk_size": 4000,
+    },
+    "input": {
+        "binders_parquet": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/sampled/binders_sampled.parquet",
+        "nonbinders_parquet": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/sampled/nonbinders_sampled.parquet",
+        "mhc_sequences": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/raw/mhc1_encodings.csv"
+    },
+    "output": {
+        "binder_tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_binder.tsv",
+        "nonbinder_tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_non_binder.tsv",
+        "binder_chunks": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/binder_chunks/",
+        "nonbinder_chunks": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/non_binder_chunks/"
+    }
+}

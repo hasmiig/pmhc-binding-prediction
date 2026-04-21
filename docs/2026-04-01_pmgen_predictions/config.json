@@ -1,0 +1,25 @@
+{
+    "date": "2026-03-26 to 2026-04-01",
+    "analyst": {
+        "binders": "Hasmig",
+        "nonbinders": "Amir"
+    },
+    "tool": "PMGen",
+    "slurm": {
+        "partition": "scc-gpu",
+        "gpu": "A100:1",
+        "time": "48:00:00",
+        "mem": "32G",
+        "cpus": 8
+    },
+    "settings": {
+        "seeds": [0, 1],
+        "max_structures_per_id": 2,
+        "n_chunks_binders": 41,
+        "n_chunks_nonbinders": 31
+    },
+    "output": {
+        "binders": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/binder/",
+        "nonbinders": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/nonbinder/"
+    }
+}

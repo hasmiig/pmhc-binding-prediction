@@ -1,0 +1,16 @@
+{
+    "date": "2026-03-25",
+    "analyst": "Hasmig Aintablian",
+    "script": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/scripts/01_data_preparation/pmhc_sampling.py",
+    "input": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/raw/PMDb_2025_11_18_class1.parquet",
+    "commands": {
+        "binders": "python /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/scripts/01_data_preparation/pmhc_sampling.py --input PMDb_2025_11_18_class1.parquet --mode binder --phases only_phase1 --output binders_sampled.parquet --plots plots/binders/",
+        "nonbinders": "python /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/scripts/01_data_preparation/pmhc_sampling.py --input PMDb_2025_11_18_class1.parquet --mode nonbinder --phases both --output nonbinders_sampled.parquet --plots plots/nonbinders/"
+    },
+    "settings": {
+        "sample_cap": 1000,
+        "max_peptide_len": 15,
+        "binder_phases": "only_phase1",
+        "nonbinder_phases": "both"
+    }
+}
