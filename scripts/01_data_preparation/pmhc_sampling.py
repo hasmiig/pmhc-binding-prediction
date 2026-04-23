@@ -517,6 +517,31 @@ def plot_comparison(stages: list, out_dir: Path) -> None:
     log.info(f"All comparison plots saved to {out_dir}/")
 
 
+def save_allele_counts(stages: list, out_dir: Path) -> None:
+    """
+    Save a CSV of peptide counts per allele at each pipeline stage.
+    Rows = alleles, Columns = one per stage (Raw, Post-Phase 1, etc.)
+    Alleles present in any stage are included; missing values are 0.
+
+    File saved:
+        allele_counts_per_stage.csv
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    counts_per_stage = {}
+    for label, df in stages:
+        counts_per_stage[label] = df[COL_MHC].value_counts()
+
+    result = pd.DataFrame(counts_per_stage).fillna(0).astype(int)
+    result.index.name = "allele"
+    result = result.sort_index()
+
+    path = out_dir / "allele_counts_per_stage.csv"
+    result.to_csv(path)
+    log.info(f"  Allele counts per stage -> {path}  ({len(result)} alleles)")
+
+
+
 # ══════════════════════════════════════════════════════════════════
 # 8.  ANCHOR COMBINATION RATIO
 # ══════════════════════════════════════════════════════════════════
@@ -1054,6 +1079,9 @@ def main():
  
         log.info("=== Anchor combination diversity ===")
         compute_anchor_combo_stats(stages=stages, out_dir=out_dir)
+
+        log.info("=== Allele counts per stage ===")
+        save_allele_counts(stages=stages, out_dir=out_dir)
  
         log.info("Phase 1 only mode. Skipping Phase 2.")
         save_data(df_phase1, args.output)
@@ -1085,6 +1113,9 @@ def main():
  
         log.info("=== Anchor combination diversity ===")
         compute_anchor_combo_stats(stages=stages, out_dir=out_dir)
+
+        log.info("=== Allele counts per stage ===")
+        save_allele_counts(stages=stages, out_dir=out_dir)
  
         save_data(df_phase2, args.output)
  

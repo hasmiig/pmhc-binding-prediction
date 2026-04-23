@@ -1,3 +1,0 @@
-stage,total_rows,unique_alleles,min_per_allele,p25_per_allele,median_per_allele,p75_per_allele,max_per_allele,alleles_at_cap,alleles_below_cap
-Mapped (Binders),87187,426,1,5,53,428,876,0,426
-Post-Phase 1,63817,426,1,5,53,376,376,0,426

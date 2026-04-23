@@ -52,7 +52,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import sys
-_PMHC_SAMPLING_DIR = Path(__file__).parent.parent
+_PMHC_SAMPLING_DIR = Path(__file__).parent.parent / "01_data_preparation"
 sys.path.insert(0, str(_PMHC_SAMPLING_DIR))
 try:
     from pmhc_sampling import (
