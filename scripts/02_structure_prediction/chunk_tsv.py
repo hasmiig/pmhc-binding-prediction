@@ -4,8 +4,9 @@ from pathlib import Path
 CHUNK_SIZE = 4000
 
 files = {
-    "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_binder.tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/binder_chunks",
-    "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_non_binder.tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/non_binder_chunks",
+    # "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_binder.tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/binder_chunks",
+    # "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_non_binder.tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/non_binder_chunks",
+    "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input/pmgen_input_new_binder.tsv": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_input_chunks/binder_new_chunks",
 }
 
 for input_file, output_dir in files.items():

@@ -1,0 +1,65 @@
+{
+    "date": "2026-05-07",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "filter_map_resample": "scripts/03_filtering_analysis/filter_map_resample.py",
+        "joint_split": "scripts/03_filtering_analysis/joint_split.py",
+        "dendrogram_split": "scripts/03_filtering_analysis/dendrogram_split.py"
+    },
+    "input": {
+        "plddt_csv_binder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/binder/plddt_means_binder.csv",
+        "plddt_csv_nonbinder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/nonbinder/plddt_means_nonbinder.csv",
+        "parquet": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/raw/PMDb_2025_11_18_class1.parquet",
+        "mhc_encodings": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/raw/mhc1_encodings.csv",
+        "pdb_base_dir_binder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/binder",
+        "pdb_base_dir_nonbinder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/nonbinder",
+        "pseudo_csv": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/raw/mhc_pseudo_class1_n.csv",
+        "pep_cluster_file": "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/raw/pep_clusters.tsv"
+    },
+    "output": {
+        "base": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/trainprep/"
+    },
+    "commands": {
+        "filter_map_resample_binder": "python filter_map_resample.py --plddt_csv .../plddt_means_binder.csv --parquet .../PMDb_2025_11_18_class1.parquet --mhc_encodings .../mhc1_encodings.csv --pdb_base_dir .../pmgen_outputs/binder --output_dir .../trainprep/binder/ --mode binder --plddt_threshold 80 --phase1_only",
+        "filter_map_resample_nonbinder": "python filter_map_resample.py --plddt_csv .../plddt_means_nonbinder.csv --parquet .../PMDb_2025_11_18_class1.parquet --mhc_encodings .../mhc1_encodings.csv --pdb_base_dir .../pmgen_outputs/nonbinder --output_dir .../trainprep/nonbinder/ --mode nonbinder --keep_all --plddt_threshold 0 --phase1_only",
+        "joint_split": "python joint_split.py --input_dir .../trainprep/combined.parquet --output_dir .../trainprep/ --k 5 --hla_test_frac 0.20",
+        "dendrogram_split": "python dendrogram_split.py --input_dir .../trainprep/combined.parquet --pseudo_csv .../mhc_pseudo_class1_n.csv --pep_cluster_file .../pep_clusters.tsv --output_dir .../trainprep/splits/dendro/ --k_clusters 10 --n_folds 5"
+    },
+    "settings": {
+        "filter_map_resample": {
+            "sample_cap": 1000,
+            "max_peptide_len": 15,
+            "binder_plddt_threshold": 80,
+            "binder_keep_all": false,
+            "binder_phase1_only": true,
+            "nonbinder_plddt_threshold": 0,
+            "nonbinder_keep_all": true,
+            "nonbinder_phase1_only": true,
+            "note_on_phase1_only": "Phase 2 skipped for nonbinders to avoid reducing count further and worsening class imbalance"
+        },
+        "joint_split": {
+            "k_folds": 5,
+            "hla_test_frac": 0.20,
+            "hla_test_strategy": "rarest alleles from binder-nonbinder intersection",
+            "anchor_split_strategy": "rotating fold assignment on P2 x C-terminal anchor combos"
+        },
+        "dendrogram_split": {
+            "k_clusters": 10,
+            "n_folds": 5,
+            "test_cluster": "largest (default)",
+            "peptide_cover_min_coverage": 0.90,
+            "peptide_cover_min_rows": 100,
+            "peptide_cover_per_allele_frac": 0.20,
+            "peptide_cover_cost_fn": "log",
+            "mhc_encoding": "49-position pseudosequence x 14 physicochemical properties (686 features)",
+            "linkage": "Ward"
+        }
+    },
+    "results": {
+        "binder_resampled_rows": "~153,000",
+        "nonbinder_resampled_rows": "~99,000",
+        "combined_rows": "~252,000",
+        "combined_binder_fraction": "~61%",
+        "note": "phase1_only for nonbinders was intentional: full phase2 would reduce nonbinders to ~60k, worsening class imbalance"
+    }
+}

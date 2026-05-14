@@ -1,0 +1,26 @@
+{
+    "date": "2026-05-09",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "add_pae_features": "scripts/03_filtering_analysis/add_pae_features.py"
+    },
+    "input": {
+        "parquet": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/trainprep/combined.parquet",
+        "pdb_base_dir_binder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/binder",
+        "pdb_base_dir_nonbinder": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/data/pmgen_outputs/nonbinder"
+    },
+    "output": {
+        "parquet": "/projects/scc/MPG/MGMN/scc_mgmn_soeding/dir.project/hasmig/outputs/trainprep/combined_with_pae.parquet"
+    },
+    "commands": {
+        "add_pae_features": "python add_pae_features.py --parquet .../trainprep/combined.parquet --output .../trainprep/combined_with_pae.parquet"
+    },
+    "settings": {
+        "dist_threshold_angstrom": 8.0,
+        "model_suffix": "_model_1_model_2_ptm",
+        "alphafold_tsv_name": "alphafold_input_file.tsv",
+        "pae_symmetrisation": "(PAE_ij + PAE_ji) / 2",
+        "pooling": "mean over 8 Å Ca-Ca neighbourhood per peptide residue, then mean over all peptide residues",
+        "length_source": "alphafold_input_file.tsv (mhc_len, pep_len from target_chainseq); fallback: pep_len from long_mer, mhc_len from PAE shape"
+    }
+}

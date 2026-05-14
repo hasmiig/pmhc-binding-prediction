@@ -1,0 +1,7 @@
+/var/spool/slurmd/job13791701/slurm_script: line 23: conda: command not found
+/var/spool/slurmd/job13791701/slurm_script: line 23: /etc/profile.d/conda.sh: No such file or directory
+/var/spool/slurmd/job13791701/slurm_script: line 24: conda: command not found
+Traceback (most recent call last):
+  File "/user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/pmhc-binding-prediction/scripts/05_baseline_dense/lr_model.py", line 41, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'

@@ -1,0 +1,457 @@
+================================================================================
+JobID = 13801221
+User = u26864, Account = scc_mgmn_soeding
+Partition = scc-gpu, Nodelist = ggpu135
+================================================================================
+Using device: cuda
+Config: layer_norm=True, regularization=none, reg_lambda=0.0001
+Model parameters: 129
+
+============================================================
+Run=thr_70_layer_norm  Fold=0
+============================================================
+  Loaded 213,726 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_0/train.parquet
+  Loaded 13,798 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_0/val.parquet
+  Epoch   1/50 | val loss=0.2597 auc=0.9284 ap=0.9831 f1=0.9360
+    -> Saved best model (val AUC=0.9284)
+  Epoch   2/50 | val loss=0.2192 auc=0.9473 ap=0.9880 f1=0.9499
+    -> Saved best model (val AUC=0.9473)
+  Epoch   3/50 | val loss=0.2299 auc=0.9537 ap=0.9900 f1=0.9461
+    -> Saved best model (val AUC=0.9537)
+  Epoch   4/50 | val loss=0.2036 auc=0.9548 ap=0.9903 f1=0.9513
+    -> Saved best model (val AUC=0.9548)
+  Epoch   5/50 | val loss=0.2066 auc=0.9560 ap=0.9905 f1=0.9512
+    -> Saved best model (val AUC=0.9560)
+  Epoch   6/50 | val loss=0.2070 auc=0.9569 ap=0.9907 f1=0.9508
+    -> Saved best model (val AUC=0.9569)
+  Epoch   7/50 | val loss=0.2031 auc=0.9561 ap=0.9905 f1=0.9515
+  Epoch   8/50 | val loss=0.1918 auc=0.9570 ap=0.9907 f1=0.9552
+    -> Saved best model (val AUC=0.9570)
+  Epoch   9/50 | val loss=0.2030 auc=0.9583 ap=0.9910 f1=0.9523
+    -> Saved best model (val AUC=0.9583)
+  Epoch  10/50 | val loss=0.1972 auc=0.9579 ap=0.9909 f1=0.9533
+  Epoch  11/50 | val loss=0.2129 auc=0.9582 ap=0.9910 f1=0.9496
+  Epoch  12/50 | val loss=0.1922 auc=0.9586 ap=0.9911 f1=0.9543
+    -> Saved best model (val AUC=0.9586)
+  Epoch  13/50 | val loss=0.1896 auc=0.9601 ap=0.9913 f1=0.9561
+    -> Saved best model (val AUC=0.9601)
+  Epoch  14/50 | val loss=0.2011 auc=0.9606 ap=0.9913 f1=0.9534
+    -> Saved best model (val AUC=0.9606)
+  Epoch  15/50 | val loss=0.1980 auc=0.9610 ap=0.9914 f1=0.9541
+    -> Saved best model (val AUC=0.9610)
+  Epoch  16/50 | val loss=0.1849 auc=0.9614 ap=0.9915 f1=0.9570
+    -> Saved best model (val AUC=0.9614)
+  Epoch  17/50 | val loss=0.2072 auc=0.9616 ap=0.9916 f1=0.9512
+    -> Saved best model (val AUC=0.9616)
+  Epoch  18/50 | val loss=0.1997 auc=0.9626 ap=0.9918 f1=0.9530
+    -> Saved best model (val AUC=0.9626)
+  Epoch  19/50 | val loss=0.1897 auc=0.9630 ap=0.9920 f1=0.9557
+    -> Saved best model (val AUC=0.9630)
+  Epoch  20/50 | val loss=0.1920 auc=0.9631 ap=0.9920 f1=0.9555
+    -> Saved best model (val AUC=0.9631)
+  Epoch  21/50 | val loss=0.1826 auc=0.9625 ap=0.9919 f1=0.9562
+  Epoch  22/50 | val loss=0.1894 auc=0.9638 ap=0.9923 f1=0.9562
+    -> Saved best model (val AUC=0.9638)
+  Epoch  23/50 | val loss=0.2219 auc=0.9645 ap=0.9925 f1=0.9479
+    -> Saved best model (val AUC=0.9645)
+  Epoch  24/50 | val loss=0.1835 auc=0.9636 ap=0.9923 f1=0.9569
+  Epoch  25/50 | val loss=0.2013 auc=0.9645 ap=0.9926 f1=0.9515
+  Epoch  26/50 | val loss=0.1798 auc=0.9642 ap=0.9925 f1=0.9573
+  Epoch  27/50 | val loss=0.1805 auc=0.9636 ap=0.9924 f1=0.9569
+  Epoch  28/50 | val loss=0.1879 auc=0.9645 ap=0.9926 f1=0.9553
+  Epoch  29/50 | val loss=0.1827 auc=0.9649 ap=0.9927 f1=0.9565
+    -> Saved best model (val AUC=0.9649)
+  Epoch  30/50 | val loss=0.1857 auc=0.9624 ap=0.9922 f1=0.9563
+  Epoch  31/50 | val loss=0.1830 auc=0.9646 ap=0.9927 f1=0.9564
+  Epoch  32/50 | val loss=0.1772 auc=0.9639 ap=0.9925 f1=0.9577
+  Epoch  33/50 | val loss=0.1873 auc=0.9648 ap=0.9927 f1=0.9555
+  Epoch  34/50 | val loss=0.1835 auc=0.9647 ap=0.9927 f1=0.9560
+  Epoch  35/50 | val loss=0.1806 auc=0.9651 ap=0.9928 f1=0.9571
+    -> Saved best model (val AUC=0.9651)
+  Epoch  36/50 | val loss=0.1884 auc=0.9659 ap=0.9930 f1=0.9542
+    -> Saved best model (val AUC=0.9659)
+  Epoch  37/50 | val loss=0.2072 auc=0.9652 ap=0.9929 f1=0.9499
+  Epoch  38/50 | val loss=0.1806 auc=0.9648 ap=0.9927 f1=0.9568
+  Epoch  39/50 | val loss=0.1882 auc=0.9644 ap=0.9927 f1=0.9542
+  Epoch  40/50 | val loss=0.1819 auc=0.9651 ap=0.9928 f1=0.9564
+  Epoch  41/50 | val loss=0.1845 auc=0.9647 ap=0.9927 f1=0.9556
+  Epoch  42/50 | val loss=0.1892 auc=0.9660 ap=0.9930 f1=0.9532
+    -> Saved best model (val AUC=0.9660)
+  Epoch  43/50 | val loss=0.1787 auc=0.9651 ap=0.9928 f1=0.9569
+  Epoch  44/50 | val loss=0.1796 auc=0.9657 ap=0.9930 f1=0.9568
+  Epoch  45/50 | val loss=0.1816 auc=0.9656 ap=0.9929 f1=0.9563
+  Epoch  46/50 | val loss=0.1757 auc=0.9660 ap=0.9930 f1=0.9575
+    -> Saved best model (val AUC=0.9660)
+  Epoch  47/50 | val loss=0.1750 auc=0.9658 ap=0.9930 f1=0.9577
+  Epoch  48/50 | val loss=0.1860 auc=0.9655 ap=0.9929 f1=0.9548
+  Epoch  49/50 | val loss=0.1836 auc=0.9654 ap=0.9929 f1=0.9555
+  Epoch  50/50 | val loss=0.1903 auc=0.9641 ap=0.9926 f1=0.9541
+
+============================================================
+Run=thr_70_layer_norm  Fold=1
+============================================================
+  Loaded 225,170 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_1/train.parquet
+  Loaded 5,979 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_1/val.parquet
+  Epoch   1/50 | val loss=0.2370 auc=0.9569 ap=0.9920 f1=0.9456
+    -> Saved best model (val AUC=0.9569)
+  Epoch   2/50 | val loss=0.2222 auc=0.9589 ap=0.9925 f1=0.9499
+    -> Saved best model (val AUC=0.9589)
+  Epoch   3/50 | val loss=0.2043 auc=0.9605 ap=0.9928 f1=0.9559
+    -> Saved best model (val AUC=0.9605)
+  Epoch   4/50 | val loss=0.1904 auc=0.9610 ap=0.9929 f1=0.9580
+    -> Saved best model (val AUC=0.9610)
+  Epoch   5/50 | val loss=0.2093 auc=0.9619 ap=0.9931 f1=0.9519
+    -> Saved best model (val AUC=0.9619)
+  Epoch   6/50 | val loss=0.2188 auc=0.9634 ap=0.9934 f1=0.9493
+    -> Saved best model (val AUC=0.9634)
+  Epoch   7/50 | val loss=0.2147 auc=0.9643 ap=0.9936 f1=0.9502
+    -> Saved best model (val AUC=0.9643)
+  Epoch   8/50 | val loss=0.2015 auc=0.9649 ap=0.9937 f1=0.9553
+    -> Saved best model (val AUC=0.9649)
+  Epoch   9/50 | val loss=0.1900 auc=0.9652 ap=0.9938 f1=0.9583
+    -> Saved best model (val AUC=0.9652)
+  Epoch  10/50 | val loss=0.1878 auc=0.9660 ap=0.9939 f1=0.9586
+    -> Saved best model (val AUC=0.9660)
+  Epoch  11/50 | val loss=0.1938 auc=0.9664 ap=0.9940 f1=0.9572
+    -> Saved best model (val AUC=0.9664)
+  Epoch  12/50 | val loss=0.2060 auc=0.9668 ap=0.9941 f1=0.9525
+    -> Saved best model (val AUC=0.9668)
+  Epoch  13/50 | val loss=0.1936 auc=0.9671 ap=0.9941 f1=0.9565
+    -> Saved best model (val AUC=0.9671)
+  Epoch  14/50 | val loss=0.2181 auc=0.9674 ap=0.9942 f1=0.9494
+    -> Saved best model (val AUC=0.9674)
+  Epoch  15/50 | val loss=0.2033 auc=0.9675 ap=0.9942 f1=0.9529
+    -> Saved best model (val AUC=0.9675)
+  Epoch  16/50 | val loss=0.1788 auc=0.9677 ap=0.9943 f1=0.9607
+    -> Saved best model (val AUC=0.9677)
+  Epoch  17/50 | val loss=0.2018 auc=0.9678 ap=0.9943 f1=0.9530
+    -> Saved best model (val AUC=0.9678)
+  Epoch  18/50 | val loss=0.1617 auc=0.9677 ap=0.9943 f1=0.9643
+  Epoch  19/50 | val loss=0.1887 auc=0.9680 ap=0.9943 f1=0.9582
+    -> Saved best model (val AUC=0.9680)
+  Epoch  20/50 | val loss=0.1949 auc=0.9681 ap=0.9943 f1=0.9564
+    -> Saved best model (val AUC=0.9681)
+  Epoch  21/50 | val loss=0.1880 auc=0.9681 ap=0.9943 f1=0.9585
+  Epoch  22/50 | val loss=0.1783 auc=0.9682 ap=0.9943 f1=0.9616
+    -> Saved best model (val AUC=0.9682)
+  Epoch  23/50 | val loss=0.1928 auc=0.9688 ap=0.9945 f1=0.9578
+    -> Saved best model (val AUC=0.9688)
+  Epoch  24/50 | val loss=0.1918 auc=0.9686 ap=0.9944 f1=0.9575
+  Epoch  25/50 | val loss=0.1821 auc=0.9685 ap=0.9944 f1=0.9602
+  Epoch  26/50 | val loss=0.2042 auc=0.9688 ap=0.9944 f1=0.9534
+  Epoch  27/50 | val loss=0.1814 auc=0.9689 ap=0.9944 f1=0.9609
+    -> Saved best model (val AUC=0.9689)
+  Epoch  28/50 | val loss=0.1855 auc=0.9691 ap=0.9945 f1=0.9604
+    -> Saved best model (val AUC=0.9691)
+  Epoch  29/50 | val loss=0.1974 auc=0.9693 ap=0.9945 f1=0.9559
+    -> Saved best model (val AUC=0.9693)
+  Epoch  30/50 | val loss=0.1947 auc=0.9698 ap=0.9946 f1=0.9574
+    -> Saved best model (val AUC=0.9698)
+  Epoch  31/50 | val loss=0.1908 auc=0.9696 ap=0.9945 f1=0.9589
+  Epoch  32/50 | val loss=0.1772 auc=0.9698 ap=0.9946 f1=0.9622
+    -> Saved best model (val AUC=0.9698)
+  Epoch  33/50 | val loss=0.1952 auc=0.9698 ap=0.9946 f1=0.9566
+    -> Saved best model (val AUC=0.9698)
+  Epoch  34/50 | val loss=0.2093 auc=0.9701 ap=0.9946 f1=0.9529
+    -> Saved best model (val AUC=0.9701)
+  Epoch  35/50 | val loss=0.1840 auc=0.9703 ap=0.9946 f1=0.9617
+    -> Saved best model (val AUC=0.9703)
+  Epoch  36/50 | val loss=0.1814 auc=0.9703 ap=0.9946 f1=0.9622
+    -> Saved best model (val AUC=0.9703)
+  Epoch  37/50 | val loss=0.1720 auc=0.9706 ap=0.9947 f1=0.9633
+    -> Saved best model (val AUC=0.9706)
+  Epoch  38/50 | val loss=0.1874 auc=0.9705 ap=0.9947 f1=0.9601
+  Epoch  39/50 | val loss=0.1849 auc=0.9705 ap=0.9947 f1=0.9620
+  Epoch  40/50 | val loss=0.1761 auc=0.9703 ap=0.9946 f1=0.9625
+  Epoch  41/50 | val loss=0.1944 auc=0.9709 ap=0.9947 f1=0.9593
+    -> Saved best model (val AUC=0.9709)
+  Epoch  42/50 | val loss=0.1811 auc=0.9705 ap=0.9946 f1=0.9620
+  Epoch  43/50 | val loss=0.1998 auc=0.9707 ap=0.9947 f1=0.9563
+  Epoch  44/50 | val loss=0.2111 auc=0.9707 ap=0.9947 f1=0.9525
+  Epoch  45/50 | val loss=0.1918 auc=0.9707 ap=0.9946 f1=0.9600
+  Epoch  46/50 | val loss=0.1817 auc=0.9706 ap=0.9946 f1=0.9626
+  Epoch  47/50 | val loss=0.1810 auc=0.9708 ap=0.9947 f1=0.9621
+  Epoch  48/50 | val loss=0.1984 auc=0.9709 ap=0.9947 f1=0.9569
+  Epoch  49/50 | val loss=0.1933 auc=0.9711 ap=0.9947 f1=0.9596
+    -> Saved best model (val AUC=0.9711)
+  Epoch  50/50 | val loss=0.1986 auc=0.9709 ap=0.9947 f1=0.9574
+
+============================================================
+Run=thr_70_layer_norm  Fold=2
+============================================================
+  Loaded 217,259 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_2/train.parquet
+  Loaded 8,079 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_2/val.parquet
+  Epoch   1/50 | val loss=0.2890 auc=0.9505 ap=0.9902 f1=0.9184
+    -> Saved best model (val AUC=0.9505)
+  Epoch   2/50 | val loss=0.2991 auc=0.9497 ap=0.9900 f1=0.9134
+  Epoch   3/50 | val loss=0.2861 auc=0.9488 ap=0.9898 f1=0.9186
+  Epoch   4/50 | val loss=0.2782 auc=0.9499 ap=0.9902 f1=0.9205
+  Epoch   5/50 | val loss=0.2684 auc=0.9501 ap=0.9904 f1=0.9248
+  Epoch   6/50 | val loss=0.2169 auc=0.9500 ap=0.9903 f1=0.9482
+  Epoch   7/50 | val loss=0.2414 auc=0.9512 ap=0.9906 f1=0.9358
+    -> Saved best model (val AUC=0.9512)
+  Epoch   8/50 | val loss=0.2306 auc=0.9511 ap=0.9906 f1=0.9417
+  Epoch   9/50 | val loss=0.2572 auc=0.9519 ap=0.9908 f1=0.9298
+    -> Saved best model (val AUC=0.9519)
+  Epoch  10/50 | val loss=0.2846 auc=0.9521 ap=0.9910 f1=0.9186
+    -> Saved best model (val AUC=0.9521)
+  Epoch  11/50 | val loss=0.2488 auc=0.9527 ap=0.9912 f1=0.9342
+    -> Saved best model (val AUC=0.9527)
+  Epoch  12/50 | val loss=0.2962 auc=0.9527 ap=0.9912 f1=0.9127
+  Epoch  13/50 | val loss=0.2354 auc=0.9532 ap=0.9912 f1=0.9387
+    -> Saved best model (val AUC=0.9532)
+  Epoch  14/50 | val loss=0.2369 auc=0.9535 ap=0.9914 f1=0.9394
+    -> Saved best model (val AUC=0.9535)
+  Epoch  15/50 | val loss=0.3020 auc=0.9520 ap=0.9912 f1=0.9103
+  Epoch  16/50 | val loss=0.2854 auc=0.9538 ap=0.9916 f1=0.9174
+    -> Saved best model (val AUC=0.9538)
+  Epoch  17/50 | val loss=0.3001 auc=0.9538 ap=0.9917 f1=0.9126
+    -> Saved best model (val AUC=0.9538)
+  Epoch  18/50 | val loss=0.2481 auc=0.9553 ap=0.9919 f1=0.9327
+    -> Saved best model (val AUC=0.9553)
+  Epoch  19/50 | val loss=0.2154 auc=0.9554 ap=0.9920 f1=0.9458
+    -> Saved best model (val AUC=0.9554)
+  Epoch  20/50 | val loss=0.2963 auc=0.9541 ap=0.9918 f1=0.9129
+  Epoch  21/50 | val loss=0.2478 auc=0.9557 ap=0.9921 f1=0.9342
+    -> Saved best model (val AUC=0.9557)
+  Epoch  22/50 | val loss=0.2886 auc=0.9538 ap=0.9918 f1=0.9166
+  Epoch  23/50 | val loss=0.2532 auc=0.9545 ap=0.9919 f1=0.9301
+  Epoch  24/50 | val loss=0.2544 auc=0.9559 ap=0.9922 f1=0.9308
+    -> Saved best model (val AUC=0.9559)
+  Epoch  25/50 | val loss=0.2848 auc=0.9553 ap=0.9921 f1=0.9190
+  Epoch  26/50 | val loss=0.2101 auc=0.9546 ap=0.9919 f1=0.9468
+  Epoch  27/50 | val loss=0.2555 auc=0.9556 ap=0.9921 f1=0.9308
+  Epoch  28/50 | val loss=0.2231 auc=0.9560 ap=0.9922 f1=0.9429
+    -> Saved best model (val AUC=0.9560)
+  Epoch  29/50 | val loss=0.2540 auc=0.9564 ap=0.9923 f1=0.9318
+    -> Saved best model (val AUC=0.9564)
+  Epoch  30/50 | val loss=0.2450 auc=0.9561 ap=0.9922 f1=0.9352
+  Epoch  31/50 | val loss=0.2620 auc=0.9559 ap=0.9922 f1=0.9291
+  Epoch  32/50 | val loss=0.2571 auc=0.9556 ap=0.9921 f1=0.9303
+  Epoch  33/50 | val loss=0.2496 auc=0.9561 ap=0.9922 f1=0.9350
+  Epoch  34/50 | val loss=0.2774 auc=0.9566 ap=0.9923 f1=0.9228
+    -> Saved best model (val AUC=0.9566)
+  Epoch  35/50 | val loss=0.3159 auc=0.9565 ap=0.9923 f1=0.9084
+  Epoch  36/50 | val loss=0.3030 auc=0.9551 ap=0.9920 f1=0.9121
+  Epoch  37/50 | val loss=0.2185 auc=0.9560 ap=0.9922 f1=0.9443
+  Epoch  38/50 | val loss=0.2366 auc=0.9560 ap=0.9922 f1=0.9385
+  Epoch  39/50 | val loss=0.2792 auc=0.9548 ap=0.9920 f1=0.9210
+  Epoch  40/50 | val loss=0.2652 auc=0.9567 ap=0.9924 f1=0.9276
+    -> Saved best model (val AUC=0.9567)
+  Epoch  41/50 | val loss=0.2019 auc=0.9572 ap=0.9924 f1=0.9510
+    -> Saved best model (val AUC=0.9572)
+  Epoch  42/50 | val loss=0.2077 auc=0.9567 ap=0.9923 f1=0.9472
+  Epoch  43/50 | val loss=0.2387 auc=0.9564 ap=0.9923 f1=0.9374
+  Epoch  44/50 | val loss=0.2603 auc=0.9566 ap=0.9923 f1=0.9299
+  Epoch  45/50 | val loss=0.2152 auc=0.9571 ap=0.9924 f1=0.9454
+  Epoch  46/50 | val loss=0.2152 auc=0.9573 ap=0.9924 f1=0.9454
+    -> Saved best model (val AUC=0.9573)
+  Epoch  47/50 | val loss=0.2472 auc=0.9567 ap=0.9924 f1=0.9345
+  Epoch  48/50 | val loss=0.2206 auc=0.9571 ap=0.9924 f1=0.9441
+  Epoch  49/50 | val loss=0.2487 auc=0.9575 ap=0.9925 f1=0.9339
+    -> Saved best model (val AUC=0.9575)
+  Epoch  50/50 | val loss=0.2423 auc=0.9572 ap=0.9924 f1=0.9360
+
+============================================================
+Run=thr_70_layer_norm  Fold=3
+============================================================
+  Loaded 222,925 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_3/train.parquet
+  Loaded 5,771 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_3/val.parquet
+  Epoch   1/50 | val loss=0.2835 auc=0.9502 ap=0.9568 f1=0.8902
+    -> Saved best model (val AUC=0.9502)
+  Epoch   2/50 | val loss=0.2504 auc=0.9635 ap=0.9655 f1=0.8961
+    -> Saved best model (val AUC=0.9635)
+  Epoch   3/50 | val loss=0.2425 auc=0.9654 ap=0.9672 f1=0.8963
+    -> Saved best model (val AUC=0.9654)
+  Epoch   4/50 | val loss=0.2401 auc=0.9656 ap=0.9675 f1=0.8995
+    -> Saved best model (val AUC=0.9656)
+  Epoch   5/50 | val loss=0.2379 auc=0.9662 ap=0.9676 f1=0.9015
+    -> Saved best model (val AUC=0.9662)
+  Epoch   6/50 | val loss=0.2323 auc=0.9669 ap=0.9683 f1=0.9041
+    -> Saved best model (val AUC=0.9669)
+  Epoch   7/50 | val loss=0.2347 auc=0.9672 ap=0.9683 f1=0.9053
+    -> Saved best model (val AUC=0.9672)
+  Epoch   8/50 | val loss=0.2292 auc=0.9679 ap=0.9692 f1=0.9061
+    -> Saved best model (val AUC=0.9679)
+  Epoch   9/50 | val loss=0.2280 auc=0.9681 ap=0.9687 f1=0.9056
+    -> Saved best model (val AUC=0.9681)
+  Epoch  10/50 | val loss=0.2290 auc=0.9681 ap=0.9687 f1=0.9050
+    -> Saved best model (val AUC=0.9681)
+  Epoch  11/50 | val loss=0.2273 auc=0.9685 ap=0.9692 f1=0.9055
+    -> Saved best model (val AUC=0.9685)
+  Epoch  12/50 | val loss=0.2268 auc=0.9684 ap=0.9691 f1=0.9056
+  Epoch  13/50 | val loss=0.2258 auc=0.9686 ap=0.9692 f1=0.9062
+    -> Saved best model (val AUC=0.9686)
+  Epoch  14/50 | val loss=0.2271 auc=0.9685 ap=0.9691 f1=0.9070
+  Epoch  15/50 | val loss=0.2265 auc=0.9686 ap=0.9694 f1=0.9076
+    -> Saved best model (val AUC=0.9686)
+  Epoch  16/50 | val loss=0.2247 auc=0.9690 ap=0.9696 f1=0.9071
+    -> Saved best model (val AUC=0.9690)
+  Epoch  17/50 | val loss=0.2272 auc=0.9689 ap=0.9694 f1=0.9079
+  Epoch  18/50 | val loss=0.2250 auc=0.9689 ap=0.9698 f1=0.9078
+  Epoch  19/50 | val loss=0.2239 auc=0.9692 ap=0.9699 f1=0.9085
+    -> Saved best model (val AUC=0.9692)
+  Epoch  20/50 | val loss=0.2265 auc=0.9691 ap=0.9701 f1=0.9071
+  Epoch  21/50 | val loss=0.2264 auc=0.9693 ap=0.9699 f1=0.9060
+    -> Saved best model (val AUC=0.9693)
+  Epoch  22/50 | val loss=0.2249 auc=0.9690 ap=0.9696 f1=0.9063
+  Epoch  23/50 | val loss=0.2253 auc=0.9692 ap=0.9699 f1=0.9062
+  Epoch  24/50 | val loss=0.2260 auc=0.9692 ap=0.9696 f1=0.9088
+  Epoch  25/50 | val loss=0.2290 auc=0.9691 ap=0.9700 f1=0.9043
+  Epoch  26/50 | val loss=0.2259 auc=0.9694 ap=0.9702 f1=0.9075
+    -> Saved best model (val AUC=0.9694)
+  Epoch  27/50 | val loss=0.2243 auc=0.9693 ap=0.9700 f1=0.9078
+  Epoch  28/50 | val loss=0.2243 auc=0.9694 ap=0.9704 f1=0.9058
+  Epoch  29/50 | val loss=0.2244 auc=0.9694 ap=0.9702 f1=0.9049
+  Epoch  30/50 | val loss=0.2301 auc=0.9694 ap=0.9699 f1=0.9072
+    -> Saved best model (val AUC=0.9694)
+  Epoch  31/50 | val loss=0.2255 auc=0.9693 ap=0.9697 f1=0.9081
+  Epoch  32/50 | val loss=0.2220 auc=0.9697 ap=0.9706 f1=0.9069
+    -> Saved best model (val AUC=0.9697)
+  Epoch  33/50 | val loss=0.2250 auc=0.9696 ap=0.9707 f1=0.9052
+  Epoch  34/50 | val loss=0.2243 auc=0.9695 ap=0.9703 f1=0.9075
+  Epoch  35/50 | val loss=0.2242 auc=0.9695 ap=0.9706 f1=0.9055
+  Epoch  36/50 | val loss=0.2266 auc=0.9693 ap=0.9697 f1=0.9051
+  Epoch  37/50 | val loss=0.2245 auc=0.9693 ap=0.9703 f1=0.9081
+  Epoch  38/50 | val loss=0.2301 auc=0.9695 ap=0.9700 f1=0.9074
+  Epoch  39/50 | val loss=0.2244 auc=0.9695 ap=0.9703 f1=0.9094
+  Epoch  40/50 | val loss=0.2254 auc=0.9695 ap=0.9702 f1=0.9084
+  Epoch  41/50 | val loss=0.2254 auc=0.9693 ap=0.9700 f1=0.9052
+  Epoch  42/50 | val loss=0.2230 auc=0.9695 ap=0.9705 f1=0.9044
+  Epoch  43/50 | val loss=0.2239 auc=0.9696 ap=0.9708 f1=0.9035
+  Epoch  44/50 | val loss=0.2228 auc=0.9697 ap=0.9700 f1=0.9102
+  Epoch  45/50 | val loss=0.2215 auc=0.9697 ap=0.9701 f1=0.9063
+    -> Saved best model (val AUC=0.9697)
+  Epoch  46/50 | val loss=0.2220 auc=0.9698 ap=0.9710 f1=0.9086
+    -> Saved best model (val AUC=0.9698)
+  Epoch  47/50 | val loss=0.2306 auc=0.9696 ap=0.9704 f1=0.9063
+  Epoch  48/50 | val loss=0.2244 auc=0.9695 ap=0.9700 f1=0.9102
+  Epoch  49/50 | val loss=0.2328 auc=0.9687 ap=0.9692 f1=0.9062
+  Epoch  50/50 | val loss=0.2236 auc=0.9694 ap=0.9701 f1=0.9042
+
+============================================================
+Run=thr_70_layer_norm  Fold=4
+============================================================
+  Loaded 213,674 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_4/train.parquet
+  Loaded 11,176 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/fold_4/val.parquet
+  Epoch   1/50 | val loss=0.2273 auc=0.9487 ap=0.9877 f1=0.9441
+    -> Saved best model (val AUC=0.9487)
+  Epoch   2/50 | val loss=0.2074 auc=0.9544 ap=0.9895 f1=0.9488
+    -> Saved best model (val AUC=0.9544)
+  Epoch   3/50 | val loss=0.2010 auc=0.9556 ap=0.9897 f1=0.9495
+    -> Saved best model (val AUC=0.9556)
+  Epoch   4/50 | val loss=0.2225 auc=0.9579 ap=0.9901 f1=0.9431
+    -> Saved best model (val AUC=0.9579)
+  Epoch   5/50 | val loss=0.2277 auc=0.9591 ap=0.9904 f1=0.9413
+    -> Saved best model (val AUC=0.9591)
+  Epoch   6/50 | val loss=0.2041 auc=0.9591 ap=0.9905 f1=0.9480
+    -> Saved best model (val AUC=0.9591)
+  Epoch   7/50 | val loss=0.2018 auc=0.9599 ap=0.9906 f1=0.9489
+    -> Saved best model (val AUC=0.9599)
+  Epoch   8/50 | val loss=0.2326 auc=0.9597 ap=0.9904 f1=0.9394
+  Epoch   9/50 | val loss=0.2063 auc=0.9604 ap=0.9908 f1=0.9469
+    -> Saved best model (val AUC=0.9604)
+  Epoch  10/50 | val loss=0.2036 auc=0.9615 ap=0.9909 f1=0.9488
+    -> Saved best model (val AUC=0.9615)
+  Epoch  11/50 | val loss=0.1914 auc=0.9609 ap=0.9908 f1=0.9513
+  Epoch  12/50 | val loss=0.2226 auc=0.9603 ap=0.9907 f1=0.9415
+  Epoch  13/50 | val loss=0.2553 auc=0.9623 ap=0.9910 f1=0.9329
+    -> Saved best model (val AUC=0.9623)
+  Epoch  14/50 | val loss=0.1957 auc=0.9611 ap=0.9907 f1=0.9499
+  Epoch  15/50 | val loss=0.1958 auc=0.9623 ap=0.9911 f1=0.9503
+    -> Saved best model (val AUC=0.9623)
+  Epoch  16/50 | val loss=0.1864 auc=0.9607 ap=0.9906 f1=0.9524
+  Epoch  17/50 | val loss=0.2112 auc=0.9634 ap=0.9914 f1=0.9469
+    -> Saved best model (val AUC=0.9634)
+  Epoch  18/50 | val loss=0.1915 auc=0.9619 ap=0.9910 f1=0.9509
+  Epoch  19/50 | val loss=0.2015 auc=0.9634 ap=0.9914 f1=0.9479
+    -> Saved best model (val AUC=0.9634)
+  Epoch  20/50 | val loss=0.2093 auc=0.9639 ap=0.9916 f1=0.9468
+    -> Saved best model (val AUC=0.9639)
+  Epoch  21/50 | val loss=0.1941 auc=0.9638 ap=0.9916 f1=0.9506
+  Epoch  22/50 | val loss=0.2170 auc=0.9642 ap=0.9916 f1=0.9445
+    -> Saved best model (val AUC=0.9642)
+  Epoch  23/50 | val loss=0.2086 auc=0.9630 ap=0.9914 f1=0.9460
+  Epoch  24/50 | val loss=0.2098 auc=0.9615 ap=0.9910 f1=0.9447
+  Epoch  25/50 | val loss=0.1923 auc=0.9644 ap=0.9918 f1=0.9502
+    -> Saved best model (val AUC=0.9644)
+  Epoch  26/50 | val loss=0.1941 auc=0.9646 ap=0.9918 f1=0.9497
+    -> Saved best model (val AUC=0.9646)
+  Epoch  27/50 | val loss=0.1961 auc=0.9645 ap=0.9919 f1=0.9490
+  Epoch  28/50 | val loss=0.1938 auc=0.9649 ap=0.9920 f1=0.9498
+    -> Saved best model (val AUC=0.9649)
+  Epoch  29/50 | val loss=0.1949 auc=0.9647 ap=0.9920 f1=0.9492
+  Epoch  30/50 | val loss=0.1960 auc=0.9650 ap=0.9921 f1=0.9488
+    -> Saved best model (val AUC=0.9650)
+  Epoch  31/50 | val loss=0.1864 auc=0.9654 ap=0.9921 f1=0.9507
+    -> Saved best model (val AUC=0.9654)
+  Epoch  32/50 | val loss=0.1966 auc=0.9648 ap=0.9920 f1=0.9483
+  Epoch  33/50 | val loss=0.1958 auc=0.9647 ap=0.9920 f1=0.9487
+  Epoch  34/50 | val loss=0.2107 auc=0.9660 ap=0.9923 f1=0.9454
+    -> Saved best model (val AUC=0.9660)
+  Epoch  35/50 | val loss=0.1832 auc=0.9662 ap=0.9923 f1=0.9520
+    -> Saved best model (val AUC=0.9662)
+  Epoch  36/50 | val loss=0.2200 auc=0.9661 ap=0.9924 f1=0.9418
+  Epoch  37/50 | val loss=0.2248 auc=0.9661 ap=0.9924 f1=0.9405
+  Epoch  38/50 | val loss=0.1931 auc=0.9666 ap=0.9925 f1=0.9493
+    -> Saved best model (val AUC=0.9666)
+  Epoch  39/50 | val loss=0.2101 auc=0.9668 ap=0.9925 f1=0.9449
+    -> Saved best model (val AUC=0.9668)
+  Epoch  40/50 | val loss=0.1963 auc=0.9668 ap=0.9925 f1=0.9479
+    -> Saved best model (val AUC=0.9668)
+  Epoch  41/50 | val loss=0.1988 auc=0.9666 ap=0.9925 f1=0.9474
+  Epoch  42/50 | val loss=0.1859 auc=0.9665 ap=0.9924 f1=0.9514
+  Epoch  43/50 | val loss=0.2031 auc=0.9670 ap=0.9926 f1=0.9465
+    -> Saved best model (val AUC=0.9670)
+  Epoch  44/50 | val loss=0.2057 auc=0.9676 ap=0.9927 f1=0.9453
+    -> Saved best model (val AUC=0.9676)
+  Epoch  45/50 | val loss=0.2365 auc=0.9677 ap=0.9928 f1=0.9374
+    -> Saved best model (val AUC=0.9677)
+  Epoch  46/50 | val loss=0.2003 auc=0.9672 ap=0.9926 f1=0.9476
+  Epoch  47/50 | val loss=0.1841 auc=0.9676 ap=0.9927 f1=0.9523
+  Epoch  48/50 | val loss=0.2086 auc=0.9672 ap=0.9926 f1=0.9458
+  Epoch  49/50 | val loss=0.2020 auc=0.9679 ap=0.9927 f1=0.9474
+    -> Saved best model (val AUC=0.9679)
+  Epoch  50/50 | val loss=0.1908 auc=0.9665 ap=0.9924 f1=0.9502
+
+============================================================
+Run=thr_70_layer_norm -- Retraining final model on all folds combined
+============================================================
+  Combined dataset: 234,800 rows
+  Loaded 234,800 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/pmhc-binding-prediction/results/02_baseline_lr/thr_70_layer_norm/combined_train.parquet
+  Final model epoch 10/50
+  Final model epoch 20/50
+  Final model epoch 30/50
+  Final model epoch 40/50
+  Final model epoch 50/50
+  Loaded 8,494 rows from /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/data/combined_dendrogram_splits/70/splits/test/test.parquet
+  Test | auc=0.9670 ap=0.9966 f1=0.9641 precision=0.9852 recall=0.9439 tpr@fpr10=0.9152
+
+Metrics saved to /user/hasmig.aintablian01/u26864/.project/dir.project/hasmig/pmhc-binding-prediction/results/02_baseline_lr/all_metrics.csv  (96 rows total)
+
+=== Summary (median val AUC per threshold / config) ===
+threshold  layer_norm  regularization
+50         False       l1                0.9536
+                       l2                0.9560
+                       none              0.9581
+           True        l1                0.9512
+                       l2                0.9596
+                       none              0.9629
+60         False       l1                0.9551
+                       l2                0.9462
+                       none              0.9620
+           True        l1                0.9608
+                       l2                0.9577
+                       none              0.9659
+70         False       l2                0.9573
+                       none              0.9613
+80         False       none              0.9658
+70         True        none              0.9679
+============ Job Information ===================================================
+Submitted: 2026-05-14T13:35:17
+Started: 2026-05-14T13:35:47
+Ended: 2026-05-14T15:40:19
+Elapsed: 125 min, Limit: 720 min, Difference: 595 min
+CPUs: 4, Nodes: 1
+Estimated credit Consumption: 312.50 core-hours
+================================================================================

@@ -1,0 +1,46 @@
+{
+    "date": "2026-05-09",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "cv_performance":      "scripts/04_baseline_model/plddt_cv_performance.py",
+        "diagnostics":         "scripts/04_baseline_model/plddt_diagnostics.py",
+        "per_allele_metrics":  "scripts/04_baseline_model/plddt_per_allele_metrics.py",
+        "per_allele_plots":    "scripts/04_baseline_model/plddt_per_allele_plots.py"
+    },
+    "input": {
+        "combined_parquet":           ".../trainprep/combined_with_pae.parquet",
+        "dendrogram_splits_base":     ".../data/combined_dendrogram_splits/{threshold}/splits",
+        "combined_splits_root":       ".../data/output_combined_splits_from_resampled/splits",
+        "per_allele_csv":             "results/01_baseline/per_allele_results/per_allele_metrics.csv"
+    },
+    "commands": {
+        "cv_performance_thr50": "python plddt_cv_performance.py --splits-root .../combined_dendrogram_splits/50/splits --output-dir results/01_baseline --feature both",
+        "cv_performance_thr60": "python plddt_cv_performance.py --splits-root .../combined_dendrogram_splits/60/splits --output-dir results/01_baseline --feature both",
+        "cv_performance_thr70": "python plddt_cv_performance.py --splits-root .../combined_dendrogram_splits/70/splits --output-dir results/01_baseline --feature both",
+        "cv_performance_thr80": "python plddt_cv_performance.py --splits-root .../combined_dendrogram_splits/80/splits --output-dir results/01_baseline --feature both",
+        "diagnostics_dendrogram": "python plddt_diagnostics.py --split-type dendrogram",
+        "per_allele_metrics":     "python plddt_per_allele_metrics.py --split-type dendrogram --thresholds 50 60 70 80",
+        "per_allele_plots":       "python plddt_per_allele_plots.py --csv results/01_baseline/per_allele_results/per_allele_metrics.csv --out-dir results/01_baseline/per_allele_results"
+    },
+    "settings": {
+        "features": {
+            "pLDDT (pep)":    "pep_mean_plddt",
+            "pLDDT (anchor)": "anchor_mean_plddt",
+            "PAE (pep)":      "pae_pep  (negated: lower PAE → higher score)"
+        },
+        "threshold_criterion": "argmin sqrt(FPR² + (1 - TPR)²)  — closest point to top-left ROC corner",
+        "n_folds": 5,
+        "fold_range_dendrogram": "0–4",
+        "test_strategy": "median of per-fold τs applied to global test/test.parquet",
+        "dendrogram_thresholds_evaluated": ["50", "60", "70", "80"],
+        "split_types_evaluated": ["dendrogram"],
+        "metrics": ["F1", "Precision", "Recall", "AUC", "AP", "TPR@FPR10"]
+    },
+    "results_summary": {
+        "test_pLDDT_pep":    {"F1": 0.947, "AUC": 0.930, "AP": 0.992, "TPR@FPR10": 0.792, "tau": 67.4},
+        "test_pLDDT_anchor": {"F1": 0.948, "AUC": 0.934, "AP": 0.993, "TPR@FPR10": 0.798, "tau": 71.95},
+        "test_PAE_pep":      {"F1": 0.925, "AUC": 0.912, "AP": 0.989, "TPR@FPR10": 0.749, "tau": -3.36},
+        "threshold_used_for_summary": "70",
+        "note": "Results stable across all four dendrogram thresholds (50, 60, 70, 80). pLDDT (anchor) is the strongest single feature."
+    }
+}

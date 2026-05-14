@@ -1,5 +1,5 @@
 """
-filter_map_train_prep.py
+filter_map_resample.py
 ========================
 Pipeline for preparing ProteinMPNN fine-tuning training data from PMGen pMHC
 structure predictions. Four sequential stages:
@@ -7,15 +7,12 @@ structure predictions. Four sequential stages:
   1. FILTER   — select best structure per (allele, peptide) pair; apply pLDDT threshold
   2. MAP      — join back to raw parquet to recover metadata + MHC sequences
   3. RESAMPLE — re-run iterative median sampling to correct allele bias
-  4. SPLIT    — produce train/val/test splits in two modes:
-                  hla    : rare alleles (<20% by frequency) held out as independent test;
-                           k-fold CV on remainder
-                  anchor : no independent test set; k-fold CV stratified by anchor residues
+
 
 Usage examples
 --------------
-# Binders, HLA-stratified split
-python filter_map_train_prep.py \\
+# Binders
+python filter_map_resample.py \\
     --plddt_csv      .../plddt_means_binder.csv \\
     --parquet        .../PMDb_2025_11_18_class1.parquet \\
     --mhc_encodings  .../mhc1_encodings.csv \\
@@ -23,11 +20,9 @@ python filter_map_train_prep.py \\
     --output_dir     .../trainprep/binder/ \\
     --mode           binder \\
     --plddt_threshold 80 \\
-    --k              5 \\
-    --split_mode     hla
 
-# Non-binders, anchor-stratified split, keep both structures
-python filter_map_train_prep.py \\
+# Non-binders, keep both structures
+python filter_map_resample.py \\
     --plddt_csv      .../plddt_means_nonbinder.csv \\
     --parquet        .../PMDb_2025_11_18_class1.parquet \\
     --mhc_encodings  .../mhc1_encodings.csv \\
@@ -36,8 +31,7 @@ python filter_map_train_prep.py \\
     --mode           nonbinder \\
     --keep_all \\
     --plddt_threshold 0 \\
-    --k              5 \\
-    --split_mode     anchor
+
 """
 
 import argparse
@@ -94,8 +88,6 @@ COL_PEPTIDE = "long_mer"
 COL_MHC     = "allele"
 COL_LABEL   = "assigned_label"
 MHC_CLASS   = "mhc_class"
-
-HLA_TEST_FRAC = 0.20
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -335,7 +327,7 @@ def phase2_anchor_sampling(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def resample(df: pd.DataFrame, mode: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def resample(df: pd.DataFrame, mode: str, phase1_only: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
     log.info("=" * 60)
     log.info("STAGE 3 — RESAMPLE")
     log.info("=" * 60)
@@ -350,169 +342,11 @@ def resample(df: pd.DataFrame, mode: str) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     df_p1 = phase1_mhc_sampling(df)
 
-    if mode == "nonbinder":
+    if mode == "nonbinder" and not phase1_only:
         df_p2 = phase2_anchor_sampling(df_p1)
         return df_p1, df_p2
     else:
         return df_p1, None
-
-
-# ══════════════════════════════════════════════════════════════════
-# STAGE 4 — SPLIT
-# ══════════════════════════════════════════════════════════════════
-
-def split_hla(df: pd.DataFrame, k: int, out_dir: Path) -> None:
-    log.info("--- Split mode: HLA ---")
-    split_dir = out_dir / "splits" / "hla"
-    split_dir.mkdir(parents=True, exist_ok=True)
-
-    allele_counts  = df[COL_MHC].value_counts().sort_values(ascending=True)
-    n_test_alleles = max(1, int(np.floor(len(allele_counts) * HLA_TEST_FRAC)))
-    test_alleles   = set(allele_counts.index[:n_test_alleles])
-    train_alleles  = [a for a in allele_counts.index if a not in test_alleles]
-
-    log.info(f"  Total alleles      : {len(allele_counts):,}")
-    log.info(f"  Test alleles       : {len(test_alleles):,}  (bottom {HLA_TEST_FRAC:.0%} by frequency)")
-    log.info(f"  CV alleles         : {len(train_alleles):,}")
-
-    df_test = df[df[COL_MHC].isin(test_alleles)].copy()
-    df_cv   = df[df[COL_MHC].isin(train_alleles)].copy().reset_index(drop=True)
-
-    save_parquet(df_test, split_dir / "test.parquet", "test set")
-    pd.DataFrame({"allele": sorted(test_alleles)}).to_csv(split_dir / "test_alleles.csv", index=False)
-
-    allele_arr   = np.array(train_alleles)
-    rng          = np.random.default_rng(42)
-    rng.shuffle(allele_arr)
-    allele_folds = np.array_split(allele_arr, k)
-
-    fold_summary = []
-    for i in range(k):
-        val_alleles        = set(allele_folds[i])
-        train_alleles_fold = set(allele_arr) - val_alleles
-
-        df_train_fold = df_cv[df_cv[COL_MHC].isin(train_alleles_fold)].copy()
-        df_val_fold   = df_cv[df_cv[COL_MHC].isin(val_alleles)].copy()
-
-        fold_dir = split_dir / f"fold_{i+1}"
-        fold_dir.mkdir(parents=True, exist_ok=True)
-        save_parquet(df_train_fold, fold_dir / "train.parquet", f"fold {i+1} train")
-        save_parquet(df_val_fold,   fold_dir / "val.parquet",   f"fold {i+1} val")
-
-        fold_summary.append({
-            "fold":            i + 1,
-            "n_train":         len(df_train_fold),
-            "n_val":           len(df_val_fold),
-            "n_train_alleles": len(train_alleles_fold),
-            "n_val_alleles":   len(val_alleles),
-        })
-
-    pd.DataFrame(fold_summary).to_csv(split_dir / "fold_summary.csv", index=False)
-    log.info(f"  Fold summary -> {split_dir}/fold_summary.csv")
-
-    meta = {
-        "split_mode":         "hla",
-        "k":                  k,
-        "hla_test_frac":      HLA_TEST_FRAC,
-        "n_test_alleles":     len(test_alleles),
-        "n_cv_alleles":       len(train_alleles),
-        "n_test_rows":        len(df_test),
-        "n_cv_rows":          len(df_cv),
-        "pdb_paths_included": "pdb_path" in df.columns,
-    }
-    with open(split_dir / "split_meta.json", "w") as f:
-        json.dump(meta, f, indent=2)
-
-
-def split_anchor(df: pd.DataFrame, k: int, out_dir: Path) -> None:
-    log.info("--- Split mode: Anchor ---")
-    split_dir = out_dir / "splits" / "anchor"
-    split_dir.mkdir(parents=True, exist_ok=True)
-
-    df = add_anchor_columns(df).copy()
-    df["_anchor_combo"] = df["a1_res"] + df["a2_res"]
-
-    all_combos = df["_anchor_combo"].unique()
-    rng        = np.random.default_rng(42)
-    rng.shuffle(all_combos)
-
-    log.info(f"  Total unique anchor combos : {len(all_combos)}")
-
-    combo_chunks = np.array_split(all_combos, k)
-    log.info(f"  Combos per chunk (~)       : {len(all_combos) // k}")
-
-    drop_cols = ["_anchor_combo", "a1_res", "a2_res"]
-
-    fold_summary = []
-    for i in range(k):
-        test_chunk   = set(combo_chunks[i])
-        val_chunk    = set(combo_chunks[(i + 1) % k])
-        train_combos = set(np.concatenate([
-            combo_chunks[j] for j in range(k)
-            if j != i and j != (i + 1) % k
-        ]))
-
-        df_test  = df[df["_anchor_combo"].isin(test_chunk)  ].drop(columns=drop_cols, errors="ignore").copy()
-        df_val   = df[df["_anchor_combo"].isin(val_chunk)   ].drop(columns=drop_cols, errors="ignore").copy()
-        df_train = df[df["_anchor_combo"].isin(train_combos)].drop(columns=drop_cols, errors="ignore").copy()
-
-        fold_dir = split_dir / f"fold_{i+1}"
-        fold_dir.mkdir(parents=True, exist_ok=True)
-        save_parquet(df_test,  fold_dir / "test.parquet",  f"fold {i+1} test")
-        save_parquet(df_val,   fold_dir / "val.parquet",   f"fold {i+1} val")
-        save_parquet(df_train, fold_dir / "train.parquet", f"fold {i+1} train")
-
-        pd.DataFrame({"anchor_combo": sorted(test_chunk)}).to_csv(
-            fold_dir / "test_combos.csv", index=False
-        )
-
-        fold_summary.append({
-            "fold":         i + 1,
-            "test_combos":  len(test_chunk),
-            "val_combos":   len(val_chunk),
-            "train_combos": len(train_combos),
-            "n_test":       len(df_test),
-            "n_val":        len(df_val),
-            "n_train":      len(df_train),
-        })
-        log.info(
-            f"  Fold {i+1}: "
-            f"test={len(test_chunk)} combos ({len(df_test):,} rows) | "
-            f"val={len(val_chunk)} combos ({len(df_val):,} rows) | "
-            f"train={len(train_combos)} combos ({len(df_train):,} rows)"
-        )
-
-    pd.DataFrame(fold_summary).to_csv(split_dir / "fold_summary.csv", index=False)
-    log.info(f"  Fold summary -> {split_dir}/fold_summary.csv")
-    log.info(f"  Total files  : {k * 3} (= {k} folds x 3 splits)")
-
-    meta = {
-        "split_mode":    "anchor",
-        "k":             k,
-        "n_rows":        len(df),
-        "n_combos":      len(all_combos),
-        "files_per_fold": 3,
-        "total_files":   k * 3,
-        "note": (
-            "Unit of splitting is anchor combo (P2+last), not rows. "
-            "Combos shuffled then split into k chunks. "
-            "Rotating assignment: test=chunk_i, val=chunk_(i+1)%k, train=rest. "
-            "Every combo is held out as test exactly once across k folds."
-        ),
-    }
-    with open(split_dir / "split_meta.json", "w") as f:
-        json.dump(meta, f, indent=2)
-
-
-def run_splits(df: pd.DataFrame, split_mode: str, k: int, out_dir: Path) -> None:
-    log.info("=" * 60)
-    log.info("STAGE 4 — SPLIT")
-    log.info("=" * 60)
-    if split_mode in ("hla", "both"):
-        split_hla(df, k=k, out_dir=out_dir)
-    if split_mode in ("anchor", "both"):
-        split_anchor(df, k=k, out_dir=out_dir)
-
 
 # ══════════════════════════════════════════════════════════════════
 # DIAGNOSTIC PLOTS
@@ -586,13 +420,11 @@ def save_summary(
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "pipeline_summary.txt"
     with open(path, "w") as f:
-        f.write("filter_map_train_prep.py — Pipeline Summary\n")
+        f.write("filter_map_resample.py — Pipeline Summary\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"mode             : {args.mode}\n")
         f.write(f"plddt_threshold  : {args.plddt_threshold}\n")
         f.write(f"keep_all         : {args.keep_all}\n")
-        f.write(f"split_mode       : {args.split_mode}\n")
-        f.write(f"k                : {args.k}\n\n")
         f.write(f"Input files\n")
         f.write(f"  plddt_csv      : {args.plddt_csv}\n")
         f.write(f"  parquet        : {args.parquet}\n")
@@ -612,7 +444,7 @@ def save_summary(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Filter, map, resample and split PMGen pMHC structures for ProteinMPNN fine-tuning.",
+        description="Filter, map, resample PMGen pMHC structures for splitting.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -628,8 +460,8 @@ def main():
         help="(nonbinder only) Keep both structures per pair")
     parser.add_argument("--plddt_threshold", type=float, default=80.0,
         help="Minimum pep_mean_plddt. Set 0 to disable.")
-    parser.add_argument("--k", type=int, default=5)
-    parser.add_argument("--split_mode", required=True, choices=["hla", "anchor", "both"])
+    parser.add_argument("--phase1_only", action="store_true",
+        help="Run only phase 1 of resampling (MHC balancing), skip anchor balancing and related plots")
 
     args = parser.parse_args()
 
@@ -638,12 +470,14 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     setup_logging(out_dir / "pipeline.log")
 
+        
     # Stage 1: Filter
     df_all_structures, df_filtered = filter_structures(
         plddt_csv=args.plddt_csv, mode=args.mode,
         keep_all=args.keep_all, plddt_threshold=args.plddt_threshold,
     )
     plot_plddt_distribution(df_all_structures, df_filtered, plot_dir, args.mode, args.plddt_threshold)
+
 
     # Stage 2: Map
     df_mapped = map_to_parquet(
@@ -655,7 +489,7 @@ def main():
     save_parquet(df_mapped, out_dir / "mapped.parquet", "mapped dataset")
 
     # Stage 3: Resample
-    df_p1, df_p2 = resample(df_mapped, mode=args.mode)
+    df_p1, df_p2 = resample(df_mapped, mode=args.mode, phase1_only=args.phase1_only)
     df_resampled  = df_p2 if df_p2 is not None else df_p1
     plot_allele_distribution(df_resampled, plot_dir, "after resampling")
     save_parquet(df_resampled, out_dir / "resampled.parquet", "resampled dataset")
@@ -684,16 +518,6 @@ def main():
         save_stats(stats_list, out_dir=plot_dir)
     else:
         log.warning(f"pmhc_sampling.py not found at {_PMHC_SAMPLING_DIR / 'pmhc_sampling.py'}")
-
-    # Stage 4: Split
-    run_splits(df_resampled, split_mode=args.split_mode, k=args.k, out_dir=out_dir)
-
-    # Summary
-    save_summary(args, df_filtered, df_mapped, df_resampled, out_dir)
-
-    log.info("=" * 60)
-    log.info("DONE — all outputs saved to: %s", out_dir)
-    log.info("=" * 60)
 
 
 if __name__ == "__main__":

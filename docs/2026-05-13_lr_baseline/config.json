@@ -1,0 +1,42 @@
+{
+    "date": "2026-05-13",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "lr_model": "scripts/05_baseline_dense/lr_model.py",
+        "lr_plot_results": "scripts/05_baseline_dense/lr_plot_results.py"
+    },
+    "input": {
+        "splits_root": "/path/to/combined_dendrogram_splits/",
+        "vector_columns": ["plddt_vector", "pae_vector"],
+        "split_parquets": "<threshold>/splits/{fold_{0-4}/train.parquet,val.parquet,test/test.parquet}",
+        "metrics_csv": "/path/to/results/02_baseline_lr/all_metrics.csv"
+    },
+    "output": {
+        "results_dir": "/path/to/results/02_baseline_lr/",
+        "metrics_csv": "all_metrics.csv",
+        "model_checkpoints": "best_model.pt and final_model.pt per run",
+        "plot": "/path/to/results/02_baseline_lr/lr_ablation.png"
+    },
+    "commands": {
+        "baseline": "python lr_model.py --splits_root /path/to/combined_dendrogram_splits/ --output_dir /path/to/results/02_baseline_lr/ --thresholds 50 60 70 80 --folds 5",
+        "l1": "python lr_model.py --splits_root /path/to/combined_dendrogram_splits/ --output_dir /path/to/results/02_baseline_lr/ --thresholds 50 60 70 80 --folds 5 --regularization l1 --reg_lambda 1e-4",
+        "l2": "python lr_model.py --splits_root /path/to/combined_dendrogram_splits/ --output_dir /path/to/results/02_baseline_lr/ --thresholds 50 70 80 --folds 5 --regularization l2 --reg_lambda 1e-4",
+        "layer_norm": "python lr_model.py --splits_root /path/to/combined_dendrogram_splits/ --output_dir /path/to/results/02_baseline_lr/ --thresholds 50 60 70 80 --folds 5 --layer_norm",
+        "plot_results": "python lr_plot_results.py --metrics_csv /path/to/results/02_baseline_lr/all_metrics.csv --output_png /path/to/results/02_baseline_lr/lr_ablation.png"
+    },
+    "settings": {
+        "thresholds": ["50", "60", "70", "80"],
+        "folds": 5,
+        "max_len": 200,
+        "embedding_dim": 8,
+        "epochs": 50,
+        "learning_rate": 0.001,
+        "regularization": ["none", "l1", "l2"],
+        "layer_norm": "optional"
+    },
+    "results": {
+        "metrics_csv": "all_metrics.csv",
+        "plots": "lr_ablation.png",
+        "notes": "Per-run folders created under output_dir with tags like thr_50_baseline, thr_50_layer_norm, etc."
+    }
+}

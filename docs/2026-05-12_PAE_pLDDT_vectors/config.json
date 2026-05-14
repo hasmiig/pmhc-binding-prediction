@@ -1,0 +1,38 @@
+{
+    "date": "2026-05-12",
+    "analyst": "Hasmig Aintablian",
+    "scripts": {
+        "extract_full_vectors": "scripts/05_baseline_dense/extract_full_vectors.py",
+        "merge_vectors_into_splits": "scripts/05_baseline_dense/merge_vectors_into_splits.py"
+    },
+    "input": {
+        "parquet": "/path/to/combined.parquet",
+        "alphafold_tsv_name": "alphafold_input_file.tsv",
+        "pdb_outputs": "{pdb_path}/{id_name}_model_1_model_2_ptm.{pdb|plddt.npy|predicted_aligned_error.npy}",
+        "splits_root": "/path/to/combined_dendrogram_splits/"
+    },
+    "output": {
+        "combined_with_vectors": "/path/to/combined_with_vectors.parquet",
+        "updated_splits": "split parquets under splits_root/<threshold>/splits/"
+    },
+    "commands": {
+        "extract_vectors": "python extract_full_vectors.py --parquet /path/to/combined.parquet --output /path/to/combined_with_vectors.parquet",
+        "extract_vectors_parallel": "python extract_full_vectors.py --parquet /path/to/combined.parquet --output /path/to/combined_with_vectors.parquet --n_chunks 10 --chunk_idx 0",
+        "merge_chunk_outputs": "python extract_full_vectors.py --merge --merge_dir /path/to/chunk_outputs/ --output /path/to/combined_with_vectors.parquet",
+        "merge_into_splits": "python merge_vectors_into_splits.py --vectors_dir /path/to/plddt_pae_vectors/ --splits_root /path/to/combined_dendrogram_splits/"
+    },
+    "settings": {
+        "dist_threshold_angstrom": 8.0,
+        "model_suffix": "_model_1_model_2_ptm",
+        "alphafold_tsv_name": "alphafold_input_file.tsv",
+        "vector_columns": ["plddt_vector", "pae_vector"],
+        "merge_keys": ["allele", "long_mer", "struct_idx"],
+        "pae_symmetrisation": "(PAE_ij + PAE_ji) / 2",
+        "pae_pooling": "mean over 8 Å Ca-Ca neighbourhood per residue"
+    },
+    "results": {
+        "vector_parquet": "combined_with_vectors.parquet",
+        "split_parquets_updated": "train/val/test splits overwritten in place",
+        "missing_rows": "reported in extraction and merge logs"
+    }
+}
