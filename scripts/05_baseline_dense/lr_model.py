@@ -48,6 +48,7 @@ from sklearn.metrics import (roc_auc_score, average_precision_score,
 from pathlib import Path
 
 # ── constants ──────────────────────────────────────────────────────────────────
+COL_ALLELE = "allele"
 D       = 8    # embedding dimension
 MAX_LEN = 200  # max pMHC complex length (verified from data: max=199)
 BATCH   = 64
@@ -150,6 +151,7 @@ class PMHCDataset(Dataset):
         self.mhc_lens      = df["mhc_len"].tolist()
         self.pep_lens      = df["pep_len"].tolist()
         self.labels        = df["label"].tolist()
+        self.alleles       = df[COL_ALLELE].tolist() if COL_ALLELE in df.columns else ["unknown"] * len(df)
 
     def __len__(self):
         return len(self.labels)
@@ -188,7 +190,38 @@ class PMHCDataset(Dataset):
 
 # ── evaluation ─────────────────────────────────────────────────────────────────
 
-def evaluate(model, loader, device):
+def compute_per_allele_metrics(all_preds, all_labels, all_alleles):
+    """Compute per-allele metrics; return DataFrame with one row per allele."""
+    all_alleles = np.array(all_alleles)
+    records = []
+    for allele in sorted(set(all_alleles)):
+        mask   = all_alleles == allele
+        y_true = all_labels[mask]
+        y_pred = all_preds[mask]
+        if len(np.unique(y_true)) < 2:
+            continue
+        y_bin = (y_pred >= 0.5).astype(int)
+        fpr_arr, tpr_arr, _ = roc_curve(y_true, y_pred)
+        mask_fpr = fpr_arr <= 0.10
+        records.append({
+            "allele":       allele,
+            "n":            int(mask.sum()),
+            "auc":          float(roc_auc_score(y_true, y_pred)),
+            "ap":           float(average_precision_score(y_true, y_pred)),
+            "f1":           float(f1_score(y_true, y_bin, zero_division=0)),
+            "precision":    float(precision_score(y_true, y_bin, zero_division=0)),
+            "recall":       float(recall_score(y_true, y_bin, zero_division=0)),
+            "tpr_at_fpr10": float(tpr_arr[mask_fpr][-1]) if mask_fpr.any() else 0.0,
+        })
+    return pd.DataFrame(records)
+
+
+def evaluate(model, loader, device, alleles=None):
+    """
+    Evaluate model. If alleles (list, same length and order as dataset) is
+    provided, also computes per-allele metrics and macro-averages.
+    Returns a metrics dict; per-allele DataFrame is stored under 'per_allele_df'.
+    """
     model.eval()
     all_preds  = []
     all_labels = []
@@ -225,7 +258,7 @@ def evaluate(model, loader, device):
     else:
         tpr_at_fpr10 = float("nan")
 
-    return {
+    metrics = {
         "loss":         total_loss / len(loader),
         "auc":          auc,
         "ap":           ap,
@@ -233,7 +266,21 @@ def evaluate(model, loader, device):
         "precision":    prec,
         "recall":       rec,
         "tpr_at_fpr10": tpr_at_fpr10,
+        "per_allele_df": None,
+        "macro_auc":    float("nan"),
+        "macro_ap":     float("nan"),
+        "macro_f1":     float("nan"),
     }
+
+    if alleles is not None and len(alleles) == len(all_preds):
+        per_allele_df = compute_per_allele_metrics(all_preds, all_labels, alleles)
+        if not per_allele_df.empty:
+            metrics["per_allele_df"] = per_allele_df
+            metrics["macro_auc"] = float(per_allele_df["auc"].mean())
+            metrics["macro_ap"]  = float(per_allele_df["ap"].mean())
+            metrics["macro_f1"]  = float(per_allele_df["f1"].mean())
+
+    return metrics
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -284,6 +331,9 @@ def metrics_row(thr, fold, eval_set, metrics, args):
         "precision":      metrics["precision"],
         "recall":         metrics["recall"],
         "tpr_at_fpr10":   metrics["tpr_at_fpr10"],
+        "macro_auc":      metrics.get("macro_auc", float("nan")),
+        "macro_ap":       metrics.get("macro_ap",  float("nan")),
+        "macro_f1":       metrics.get("macro_f1",  float("nan")),
     }
 
 
@@ -435,14 +485,21 @@ if __name__ == "__main__":
 
             test_ds     = PMHCDataset(str(test_path))
             test_loader = DataLoader(test_ds, batch_size=BATCH, shuffle=False, num_workers=4)
-            test_metrics = evaluate(final_model, test_loader, device)
+            test_metrics = evaluate(final_model, test_loader, device, alleles=test_ds.alleles)
 
             print(f"  Test | auc={test_metrics['auc']:.4f} "
                   f"ap={test_metrics['ap']:.4f} "
                   f"f1={test_metrics['f1']:.4f} "
                   f"precision={test_metrics['precision']:.4f} "
                   f"recall={test_metrics['recall']:.4f} "
-                  f"tpr@fpr10={test_metrics['tpr_at_fpr10']:.4f}")
+                  f"tpr@fpr10={test_metrics['tpr_at_fpr10']:.4f} "
+                  f"macro_auc={test_metrics['macro_auc']:.4f} "
+                  f"macro_ap={test_metrics['macro_ap']:.4f}")
+
+            if test_metrics["per_allele_df"] is not None:
+                per_allele_path = final_output_dir / "per_allele_metrics.csv"
+                test_metrics["per_allele_df"].to_csv(per_allele_path, index=False)
+                print(f"  Per-allele metrics saved to {per_allele_path}")
 
             all_metrics.append(metrics_row(thr, "test", "test", test_metrics, args))
 

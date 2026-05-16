@@ -35,10 +35,10 @@ def main():
 
     # ── load & label ──────────────────────────────────────────────────────────
     log.info("Loading resampled parquets...")
-    df_binder    = pd.read_parquet(Path(args.binder_dir)    / "resampled.parquet")
-    df_nonbinder = pd.read_parquet(Path(args.nonbinder_dir) / "resampled.parquet")
-    # df_binder    = pd.read_parquet(Path(args.binder_dir)    / "mapped.parquet")
-    # df_nonbinder = pd.read_parquet(Path(args.nonbinder_dir) / "mapped.parquet")
+    # df_binder    = pd.read_parquet(Path(args.binder_dir)    / "resampled.parquet")
+    # df_nonbinder = pd.read_parquet(Path(args.nonbinder_dir) / "resampled.parquet")
+    df_binder    = pd.read_parquet(Path(args.binder_dir)    / "mapped.parquet")
+    df_nonbinder = pd.read_parquet(Path(args.nonbinder_dir) / "mapped.parquet")
 
     df_binder["label"]    = 1
     df_nonbinder["label"] = 0

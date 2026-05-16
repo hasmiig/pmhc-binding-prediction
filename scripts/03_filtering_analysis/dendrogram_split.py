@@ -1,50 +1,48 @@
 """
 dendrogram_split.py
 ===================
-Creates MHC-dendrogram-stratified train/val/test splits with peptide-level
-leakage control.
+MHC-dendrogram-stratified train/val/test splits with peptide-level
+leakage control. Supports four experiment modes:
+  hla_a, hla_b, hla_c  — leaf-cluster-based HLA family splits
+  cross_species         — train on HLA, test/val on non-human species
 
 Steps
 -----
-1. Load combined parquet.
-2. Load --pep_cluster_file, print peptide-cluster coverage of combined frame.
-3. Assign peptide cluster IDs: use precomputed clusters where available;
-   for unmatched peptides, create anchor-pair singleton clusters (P2 + last residue).
-4. Load --pseudo_csv (49-char mhc_sequence), apply clean_key() to match parquet
-   allele names, encode with physicochemical properties (49x14 = 686 features).
-5. Ward hierarchical clustering on encoded alleles, cut into --k_clusters groups.
-   Save dendrogram.png.
-6. Hold out one cluster as the fixed test set (--test_cluster or largest).
-7. Run peptide_cluster_set_cover for test alleles; save test.parquet.
-   excluded_test_clusters are permanently off-limits for all folds.
-8. Distribute remaining clusters across --n_folds folds (merging smallest if needed).
-9. For each fold: run set_cover for val alleles (excluding test clusters),
-   assign rows, save train/val parquets.
-10. Save fold_summary.csv and split_meta.json.
+1.  Load combined parquet.
+2.  Encode MHC pseudosequences (physicochemical, 49x14=686 features).
+3.  Ward hierarchical clustering; cut at --leaf_distance_threshold to
+    obtain small leaf-level clusters of 2-5 alleles.
+    Save dendrogram + cut line to mhc_clustering/dendrogram.png.
+    Save allele→cluster assignments to mhc_clustering/allele_cluster_assignments.csv.
+4.  Dispatch to mode-specific pipeline (allele assignments fixed once;
+    only peptide-cluster exclusions change per threshold).
+5.  For each peptide-cluster threshold file:
+      a. Assign peptide cluster IDs (precomputed + singleton fallback).
+      b. Run set-cover for test alleles → excluded_test_clusters.
+      c. Per fold: run set-cover for val alleles → save train/val parquets.
+      d. Save binder/nonbinder counts, peptide cluster summaries,
+         fold_summary.csv, split_meta.json.
 
-Row assignment per fold
------------------------
-- allele in test_alleles AND cluster in excluded_test_clusters  -> test.parquet
-- allele in val_alleles  AND cluster in sel_val_clusters        -> val.parquet
-- cluster in excluded_test_clusters AND allele NOT in test      -> excluded (neither split)
-- cluster in sel_val_clusters       AND allele NOT in val       -> excluded (neither split)
-- everything else                                               -> train.parquet
-  (includes test/val allele rows whose peptide cluster was NOT selected by set cover)
+Strict train mask (always):
+    train = ~in_test_cluster & ~in_val_cluster & ~in_test_allele & ~in_val_allele
 
 Usage
 -----
 python dendrogram_split.py \\
-    --input_dir        .../combined.parquet \\
-    --pseudo_csv       .../mhc_pseudo_class1_n.csv \\
-    --pep_cluster_file .../pep_clusters.tsv \\
-    --output_dir       .../output_dendro_split \\
-    --k_clusters 10 \\
+    --input_dir   .../combined.parquet \\
+    --pseudo_csv  .../mhc_pseudo_class1_n.csv \\
+    --pep_cluster_files .../pep50.tsv .../pep60.tsv .../pep70.tsv .../pep80.tsv \\
+    --thresholds 50 60 70 80 \\
+    --output_dir  .../output_dendro_split \\
+    --mode hla_a \\
+    --leaf_distance_threshold 25.0 \\
     --n_folds 5
 """
 
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 import warnings
@@ -69,6 +67,9 @@ PEPTIDE_COVER_MIN_COV         = 0.90
 PEPTIDE_COVER_MIN_ROWS        = 100
 PEPTIDE_COVER_PER_ALLELE_FRAC = 0.20
 PEPTIDE_COVER_PER_ALLELE_CAP  = 1000
+
+# ── known non-HLA species prefixes (cleaned-allele format) ────────────────────
+KNOWN_NONHLA_PREFIXES = ["H2", "BOLA", "DLA", "EQCA", "GOGO", "MAMU", "PATR", "SLA"]
 
 log = logging.getLogger(__name__)
 
@@ -421,7 +422,6 @@ def print_peptide_cluster_coverage(df: pd.DataFrame, pep_clusters: pd.DataFrame)
 
 def assign_cluster_ids(df: pd.DataFrame, pep_clusters: pd.DataFrame) -> pd.DataFrame:
     if "cluster" in df.columns:
-        log.info("  Dropping existing 'cluster' column from combined frame before merge.")
         df = df.drop(columns=["cluster"])
 
     df = df.merge(pep_clusters, on=COL_PEPTIDE, how="left")
@@ -460,19 +460,7 @@ def assign_cluster_ids(df: pd.DataFrame, pep_clusters: pd.DataFrame) -> pd.DataF
 def encode_pseudosequences(pseudo_csv_path: Path, alleles_in_data: set):
     """
     Load, clean-key-normalize, filter, and physicochemically encode pseudosequences.
-
-    Parameters
-    ----------
-    pseudo_csv_path : Path
-        CSV with columns [allele, mhc_sequence] (49-char, already aligned).
-    alleles_in_data : set
-        Cleaned allele keys as stored in the combined parquet.
-
-    Returns
-    -------
-    X            : np.ndarray (n_alleles, 49*14)
-    allele_list  : list[str]  — cleaned allele keys, aligned with X rows
-    alleles_missing : set[str] — alleles in data with no pseudosequence (-> always train)
+    Returns (X, allele_list, alleles_missing).
     """
     log.info(f"Loading pseudosequences from {pseudo_csv_path}...")
     ps = pd.read_csv(pseudo_csv_path).drop_duplicates(subset=[COL_ALLELE]).reset_index(drop=True)
@@ -492,122 +480,59 @@ def encode_pseudosequences(pseudo_csv_path: Path, alleles_in_data: set):
         sample = sorted(alleles_missing)[:10]
         log.info(f"  Missing sample: {sample}" + (" ..." if len(alleles_missing) > 10 else ""))
 
-    X = encode_full_vectorized(ps_filtered["mhc_sequence"].values)  # (n, 49*14)
+    X = encode_full_vectorized(ps_filtered["mhc_sequence"].values)
     log.info(f"  Encoded: {X.shape}  (49 positions x 14 props per allele)")
     return X, ps_filtered["allele_clean"].tolist(), alleles_missing
 
 
 def run_hierarchical_clustering(
-    X: np.ndarray, allele_list: list, k_clusters: int, output_dir: Path
+    X: np.ndarray, allele_list: list, leaf_distance_threshold: float, output_dir: Path
 ):
-    """Ward linkage + fcluster; save dendrogram.png. Returns (Z, hier_labels)."""
-    log.info(f"Running Ward hierarchical clustering (k={k_clusters})...")
+    """Ward linkage + distance-threshold fcluster; save dendrogram.png with cut line."""
+    log.info(f"Running Ward hierarchical clustering (leaf_distance_threshold={leaf_distance_threshold})...")
     t0 = time.time()
     Z           = linkage(X, method="ward")
-    hier_labels = fcluster(Z, t=k_clusters, criterion="maxclust")  # 1-indexed int array
+    hier_labels = fcluster(Z, t=leaf_distance_threshold, criterion="distance")
 
     unique, counts = np.unique(hier_labels, return_counts=True)
+    log.info(f"  {len(unique)} clusters produced at threshold {leaf_distance_threshold}")
     for cl, cnt in zip(unique, counts):
-        log.info(f"  Cluster {cl:2d}: {cnt:3d} alleles")
+        log.info(f"  Cluster {cl:3d}: {cnt:3d} alleles")
 
-    # Dendrogram
-    n          = len(allele_list)
-    leaf_fs    = max(3, min(7, 350 // max(n, 1)))
-    fig_w      = max(16, n * 0.12)
-    color_thr  = float(Z[-(k_clusters - 1), 2]) if k_clusters > 1 else 0.0
-    fig, ax    = plt.subplots(figsize=(fig_w, 7))
+    n       = len(allele_list)
+    leaf_fs = max(3, min(7, 350 // max(n, 1)))
+    fig_w   = max(16, n * 0.12)
+    fig, ax = plt.subplots(figsize=(fig_w, 7))
     dendrogram(
         Z,
         labels=allele_list,
         leaf_rotation=90,
         leaf_font_size=leaf_fs,
         ax=ax,
-        color_threshold=color_thr,
+        color_threshold=leaf_distance_threshold,
     )
+    ax.axhline(
+        y=leaf_distance_threshold, color="red", linestyle="--", linewidth=1.5,
+        label=f"Cut threshold = {leaf_distance_threshold}",
+    )
+    ax.legend(fontsize=10)
     ax.set_title(
-        f"MHC Pseudosequence Dendrogram  (Ward linkage, k={k_clusters})", fontsize=14
+        f"MHC Pseudosequence Dendrogram  (Ward linkage, threshold={leaf_distance_threshold})",
+        fontsize=14,
     )
     ax.set_ylabel("Distance", fontsize=12)
     plt.tight_layout()
     out_path = output_dir / "dendrogram.png"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(out_path, dpi=200, bbox_inches="tight")
     plt.close()
     log.info(f"  Saved: {out_path}  [{time.time()-t0:.1f}s]")
     return Z, hier_labels
 
 
-def select_test_cluster(
-    hier_labels: np.ndarray, allele_list: list, test_cluster_arg
-) -> int:
-    """Return the cluster label to hold out as the fixed test set."""
-    unique, counts = np.unique(hier_labels, return_counts=True)
-    if test_cluster_arg is not None:
-        if test_cluster_arg not in unique:
-            raise ValueError(
-                f"--test_cluster {test_cluster_arg} is not a valid cluster label. "
-                f"Valid labels: {sorted(unique.tolist())}"
-            )
-        chosen = int(test_cluster_arg)
-        cnt    = int(counts[unique == chosen][0])
-    else:
-        idx    = int(np.argmax(counts))
-        chosen = int(unique[idx])
-        cnt    = int(counts[idx])
-    log.info(f"Test cluster: label={chosen}  ({cnt} alleles)")
-    return chosen
-
-
-def merge_clusters_to_folds(
-    remaining_cluster_ids: list,
-    hier_labels: np.ndarray,
-    allele_list: list,
-    n_folds: int,
-) -> list:
-    """
-    Distribute remaining MHC cluster labels into min(n_folds, len(remaining)) groups.
-    When more clusters than folds, iteratively merge the two smallest groups.
-
-    Returns
-    -------
-    list of sets, each set containing one or more cluster label ints.
-    """
-    remaining_set = set(remaining_cluster_ids)
-
-    # Count alleles per remaining cluster
-    cluster_size_map: dict = {}
-    for a, lbl in zip(allele_list, hier_labels):
-        if lbl in remaining_set:
-            cluster_size_map[lbl] = cluster_size_map.get(lbl, 0) + 1
-
-    groups = [{c} for c in sorted(remaining_set)]
-    sizes  = [cluster_size_map.get(c, 0) for c in sorted(remaining_set)]
-
-    while len(groups) > n_folds:
-        i1        = int(np.argmin(sizes))
-        saved     = sizes[i1]
-        sizes[i1] = float("inf")
-        i2        = int(np.argmin(sizes))
-        sizes[i1] = saved
-        groups[i2] |= groups[i1]
-        sizes[i2]  += sizes[i1]
-        groups.pop(i1)
-        sizes.pop(i1)
-
-    actual = len(groups)
-    log.info(
-        f"Fold groups: {actual} folds "
-        f"(requested {n_folds}, {len(remaining_cluster_ids)} remaining clusters)"
-    )
-    for fi, grp in enumerate(groups):
-        n_alleles = sum(cluster_size_map.get(c, 0) for c in grp)
-        log.info(f"  Fold {fi}: clusters={sorted(grp)}  alleles={n_alleles}")
-    return groups
-
-
 def precompute_pep_cluster_maps(df: pd.DataFrame) -> tuple:
     """
     Build the data structures needed by peptide_cluster_set_cover.
-
     Returns (pep_clust_to_alleles, global_cluster_sizes,
              cluster_allele_rows, allele_cluster_rows, allele_total_rows)
     """
@@ -637,55 +562,548 @@ def precompute_pep_cluster_maps(df: pd.DataFrame) -> tuple:
     )
 
 
+# ── species helpers ────────────────────────────────────────────────────────────
+
+def get_species_prefix(cleaned_allele: str) -> str:
+    """Return species prefix from a cleaned allele name."""
+    if cleaned_allele.startswith("HLA"):
+        return "HLA"
+    for prefix in KNOWN_NONHLA_PREFIXES:
+        if cleaned_allele.startswith(prefix):
+            return prefix
+    m = re.match(r"^([A-Z]+)", cleaned_allele)
+    return m.group(1) if m else cleaned_allele[:4]
+
+
+def detect_nonhuman_species(alleles: set) -> dict:
+    """Group non-HLA alleles by species prefix. Returns {prefix: [allele, ...]}."""
+    species_map: dict = {}
+    for a in alleles:
+        prefix = get_species_prefix(a)
+        if prefix != "HLA":
+            species_map.setdefault(prefix, []).append(a)
+    return species_map
+
+
+# ── monitoring helpers ─────────────────────────────────────────────────────────
+
+def save_binder_nonbinder_counts(
+    df: pd.DataFrame, out_dir: Path, label: str = "", save_plot: bool = False
+) -> None:
+    """Save per-allele binder/nonbinder counts CSV; log if ratio > 5:1; optional bar plot."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    grp = df.groupby(COL_ALLELE)["label"].value_counts().unstack(fill_value=0)
+    grp.columns.name = None
+    grp = grp.rename(columns={0: "nonbinders", 1: "binders"}).reset_index()
+    for col in ("binders", "nonbinders"):
+        if col not in grp.columns:
+            grp[col] = 0
+    grp["total"] = grp["binders"] + grp["nonbinders"]
+    grp = grp.sort_values("total", ascending=False).reset_index(drop=True)
+    grp.to_csv(out_dir / "binder_nonbinder_counts.csv", index=False)
+
+    total_b = int(grp["binders"].sum())
+    total_n = int(grp["nonbinders"].sum())
+    if total_n > 0:
+        ratio = total_b / total_n
+        msg = f"  [{label}] binder:nonbinder = {total_b:,}:{total_n:,} ({ratio:.2f}:1)"
+        if ratio > 5.0:
+            log.warning(msg + "  << RATIO > 5:1")
+        else:
+            log.info(msg)
+    else:
+        log.info(f"  [{label}] binder:nonbinder = {total_b:,}:0  (no non-binders)")
+
+    if save_plot and len(grp) > 0:
+        fig, ax = plt.subplots(figsize=(max(8, len(grp) * 0.4), 5))
+        x = np.arange(len(grp))
+        ax.bar(x, grp["nonbinders"], label="Non-binders", color="steelblue")
+        ax.bar(x, grp["binders"],    label="Binders",     color="coral", bottom=grp["nonbinders"])
+        ax.set_xticks(x)
+        ax.set_xticklabels(grp[COL_ALLELE], rotation=90, fontsize=6)
+        ax.set_ylabel("Count")
+        ax.set_title(f"Binder/Non-binder counts per allele  [{label}]")
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig(out_dir / "binder_nonbinder_counts.png", dpi=150, bbox_inches="tight")
+        plt.close()
+
+
+def save_peptide_cluster_summary(
+    df: pd.DataFrame,
+    sel_clusters: set,
+    pep_clust_to_alleles: dict,
+    global_cluster_sizes: dict,
+    target_alleles: set,
+    out_dir: Path,
+    label: str = "",
+) -> None:
+    """Save peptide-cluster overlap summary CSV + bar plot."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    total_clusters      = len(pep_clust_to_alleles)
+    overlapping         = {c for c, als in pep_clust_to_alleles.items() if als & target_alleles}
+    excluded_by_sc      = overlapping & sel_clusters
+    remaining_overlap   = overlapping - sel_clusters
+
+    if remaining_overlap:
+        log.warning(
+            f"  [{label}] {len(remaining_overlap)} peptide clusters overlap target alleles "
+            f"but were NOT excluded by set-cover (potential leakage)"
+        )
+
+    collateral_mask = df["cluster"].isin(sel_clusters) & ~df[COL_ALLELE].isin(target_alleles)
+    collateral_rows = int(collateral_mask.sum())
+
+    summary = {
+        "total_clusters":         total_clusters,
+        "overlapping_with_target": len(overlapping),
+        "excluded_by_setcover":   len(excluded_by_sc),
+        "remaining_overlap":      len(remaining_overlap),
+        "collateral_rows_lost":   collateral_rows,
+    }
+    pd.DataFrame([summary]).to_csv(out_dir / "peptide_cluster_summary.csv", index=False)
+    log.info(
+        f"  [{label}] pep-cluster summary: total={total_clusters}, "
+        f"overlap={len(overlapping)}, excluded={len(excluded_by_sc)}, "
+        f"remaining={len(remaining_overlap)}, collateral={collateral_rows:,}"
+    )
+
+    categories = ["Total clusters", "Overlap w/ target", "Excluded (set-cover)",
+                  "Remaining overlap", "Collateral rows lost"]
+    values     = [total_clusters, len(overlapping), len(excluded_by_sc),
+                  len(remaining_overlap), collateral_rows]
+    colors     = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3"]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(categories, values, color=colors)
+    ax.set_ylabel("Count")
+    ax.set_title(f"Peptide cluster summary  [{label}]")
+    for i, v in enumerate(values):
+        ax.text(i, v + max(values) * 0.01, str(v), ha="center", fontsize=9)
+    plt.xticks(rotation=20, ha="right")
+    plt.tight_layout()
+    plt.savefig(out_dir / "peptide_cluster_summary.png", dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+# ── set-cover call helpers ─────────────────────────────────────────────────────
+
+def _rows_by_cluster_for_alleles(alleles, allele_cluster_rows):
+    rows: dict = {}
+    for a in alleles:
+        for c, n in allele_cluster_rows.get(a, {}).items():
+            rows[c] = rows.get(c, 0) + n
+    return rows
+
+
+def _per_allele_floor(alleles, allele_total_rows):
+    return {
+        a: min(
+            int(np.ceil(PEPTIDE_COVER_PER_ALLELE_FRAC * allele_total_rows.get(a, 0))),
+            PEPTIDE_COVER_PER_ALLELE_CAP,
+        )
+        for a in alleles
+    }
+
+
+# ── per-threshold data loader ──────────────────────────────────────────────────
+
+def load_threshold_data(df_base: pd.DataFrame, pep_cluster_file: Path):
+    """Load one peptide cluster file, assign IDs, precompute maps."""
+    pep_clusters = load_precomputed_peptide_clusters(pep_cluster_file)
+    print_peptide_cluster_coverage(df_base, pep_clusters)
+    df = assign_cluster_ids(df_base.copy(), pep_clusters)
+    maps = precompute_pep_cluster_maps(df)
+    return df, maps
+
+
+# ── mode: hla_a / hla_b / hla_c ───────────────────────────────────────────────
+
+def run_mode_hla_family(
+    df_base: pd.DataFrame,
+    allele_list: list,
+    hier_labels: np.ndarray,
+    target_prefix: str,
+    pep_cluster_files: list,
+    thresholds: list,
+    mode_output_dir: Path,
+    n_folds: int,
+):
+    """Run hla_a / hla_b / hla_c mode for all peptide-cluster thresholds."""
+    log.info(f"\n{'='*60}")
+    log.info(f"Mode: {target_prefix} family split")
+    log.info(f"{'='*60}")
+
+    # ── Allele assignment: done once from the dendrogram ──────────────────────
+    unique_clusters = sorted(np.unique(hier_labels).tolist())
+    clusters_with_target = []
+    for cl in unique_clusters:
+        cl_alleles = [a for a, c in zip(allele_list, hier_labels) if c == cl]
+        n_target   = sum(1 for a in cl_alleles if a.startswith(target_prefix))
+        if n_target > 0:
+            purity = n_target / len(cl_alleles)
+            clusters_with_target.append({
+                "label":      cl,
+                "purity":     purity,
+                "all":        cl_alleles,
+                "target":     [a for a in cl_alleles if a.startswith(target_prefix)],
+                "n_target":   n_target,
+            })
+
+    if not clusters_with_target:
+        log.warning(f"No clusters contain {target_prefix} alleles. Skipping mode.")
+        return
+
+    clusters_with_target.sort(key=lambda x: -x["purity"])
+
+    test_info            = clusters_with_target[0]
+    test_all_cluster     = set(test_info["all"])
+    test_alleles         = set(test_info["target"])
+    log.info(
+        f"Test cluster: label={test_info['label']}, purity={test_info['purity']:.2f}, "
+        f"{len(test_alleles)} target alleles, {len(test_all_cluster)} total alleles"
+    )
+    log.info(f"  Test alleles  : {sorted(test_alleles)}")
+    log.info(f"  Discarded     : {sorted(test_all_cluster - test_alleles)}")
+
+    remaining = clusters_with_target[1:]
+    max_folds = n_folds if n_folds > 0 else len(remaining)
+    fold_groups = [remaining[i:i+3] for i in range(0, min(len(remaining), max_folds * 3), 3)]
+    log.info(f"Val fold groups: {len(fold_groups)} folds (3 clusters/fold max, n_folds cap={max_folds})")
+    for fi, grp in enumerate(fold_groups):
+        target_in_grp = [a for info in grp for a in info["target"]]
+        log.info(f"  Fold {fi}: clusters={[g['label'] for g in grp]}, "
+                 f"{len(target_in_grp)} target val alleles")
+
+    # ── Per-threshold loop ────────────────────────────────────────────────────
+    for pep_file, thr_label in zip(pep_cluster_files, thresholds):
+        log.info(f"\n  -- threshold {thr_label}  ({pep_file.name}) --")
+        thr_dir = mode_output_dir / f"threshold_{thr_label}"
+
+        df, (pep_clust_to_alleles, global_cluster_sizes,
+             cluster_allele_rows, allele_cluster_rows, allele_total_rows) = \
+            load_threshold_data(df_base, pep_file)
+
+        # Test set-cover on ALL alleles in test cluster (prevents peptide leakage)
+        log.info("  Running set-cover for TEST alleles...")
+        sel_test_clust, cov_test_a, test_st = peptide_cluster_set_cover(
+            target_alleles      = test_all_cluster,
+            pep_clust_to_alleles= pep_clust_to_alleles,
+            global_cluster_sizes= global_cluster_sizes,
+            target_cluster_rows = _rows_by_cluster_for_alleles(test_all_cluster, allele_cluster_rows),
+            cluster_allele_rows = cluster_allele_rows,
+            per_allele_min_rows = _per_allele_floor(test_all_cluster, allele_total_rows),
+            min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
+        )
+        excluded_test_clusters = sel_test_clust
+        log.info(
+            f"  Test set-cover: {len(sel_test_clust)} clusters selected, "
+            f"coverage={test_st['coverage_frac']:.1%}"
+        )
+
+        test_dir  = thr_dir / "test"
+        test_mask = (
+            df[COL_ALLELE].isin(test_alleles)
+            & df["cluster"].isin(excluded_test_clusters)
+        )
+        save_parquet(df[test_mask].reset_index(drop=True), test_dir / "test.parquet", "test")
+        pd.DataFrame({"allele": sorted(test_alleles)}).to_csv(
+            test_dir / "test_alleles.csv", index=False
+        )
+        save_binder_nonbinder_counts(df[test_mask], test_dir, label=f"test thr={thr_label}", save_plot=True)
+        save_peptide_cluster_summary(
+            df, excluded_test_clusters, pep_clust_to_alleles, global_cluster_sizes,
+            test_alleles, test_dir, label=f"test thr={thr_label}",
+        )
+
+        fold_summary = []
+        for fold_i, fold_group in enumerate(fold_groups):
+            val_all_cluster = set(a for info in fold_group for a in info["all"])
+            val_alleles     = set(a for info in fold_group for a in info["target"])
+
+            log.info(f"\n  Fold {fold_i}: {len(val_alleles)} target val alleles, "
+                     f"{len(val_all_cluster)} total in val clusters")
+
+            sel_val_clust, cov_val_a, val_st = peptide_cluster_set_cover(
+                target_alleles      = val_all_cluster,
+                pep_clust_to_alleles= pep_clust_to_alleles,
+                global_cluster_sizes= global_cluster_sizes,
+                target_cluster_rows = _rows_by_cluster_for_alleles(val_all_cluster, allele_cluster_rows),
+                cluster_allele_rows = cluster_allele_rows,
+                per_allele_min_rows = _per_allele_floor(val_all_cluster, allele_total_rows),
+                excluded_clusters   = excluded_test_clusters,
+                min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
+            )
+            log.info(
+                f"  Val set-cover: {len(sel_val_clust)} clusters selected, "
+                f"coverage={val_st['coverage_frac']:.1%}"
+            )
+
+            in_test_cluster = df["cluster"].isin(excluded_test_clusters)
+            in_val_cluster  = df["cluster"].isin(sel_val_clust)
+            in_test_allele  = df[COL_ALLELE].isin(test_all_cluster)
+            in_val_allele   = df[COL_ALLELE].isin(val_all_cluster)
+
+            val_mask   = df[COL_ALLELE].isin(val_alleles) & in_val_cluster
+            train_mask = ~in_test_cluster & ~in_val_cluster & ~in_test_allele & ~in_val_allele
+
+            df_val   = df[val_mask].reset_index(drop=True)
+            df_train = df[train_mask].reset_index(drop=True)
+
+            fold_dir = thr_dir / f"fold_{fold_i}"
+            save_parquet(df_train, fold_dir / "train.parquet", f"fold_{fold_i} train")
+            save_parquet(df_val,   fold_dir / "val.parquet",   f"fold_{fold_i} val")
+            save_binder_nonbinder_counts(df_train, fold_dir, label=f"fold_{fold_i}/train thr={thr_label}")
+            save_binder_nonbinder_counts(df_val,   fold_dir / "val_counts",
+                                         label=f"fold_{fold_i}/val thr={thr_label}", save_plot=True)
+            save_peptide_cluster_summary(
+                df, sel_val_clust, pep_clust_to_alleles, global_cluster_sizes,
+                val_alleles, fold_dir, label=f"fold_{fold_i} thr={thr_label}",
+            )
+
+            n_excluded = int(
+                ((in_test_cluster & ~in_test_allele) | (in_val_cluster & ~in_val_allele)).sum()
+            )
+            fold_summary.append({
+                "fold":                             fold_i,
+                "val_cluster_labels":               str([g["label"] for g in fold_group]),
+                "n_val_target_alleles":             len(val_alleles),
+                "n_val_all_cluster_alleles":        len(val_all_cluster),
+                "n_train":                          len(df_train),
+                "n_val":                            len(df_val),
+                "n_train_binders":                  int((df_train["label"] == 1).sum()),
+                "n_train_nonbinders":               int((df_train["label"] == 0).sum()),
+                "n_val_binders":                    int((df_val["label"] == 1).sum()),
+                "n_val_nonbinders":                 int((df_val["label"] == 0).sum()),
+                "n_pep_clusters_test_excluded":     len(excluded_test_clusters),
+                "n_pep_clusters_val_excluded":      len(sel_val_clust),
+                "n_rows_excluded_collateral":       n_excluded,
+                "val_setcover_coverage":            round(val_st["coverage_frac"], 4),
+            })
+
+        pd.DataFrame(fold_summary).to_csv(thr_dir / "fold_summary.csv", index=False)
+        log.info(f"  Saved: {thr_dir / 'fold_summary.csv'}")
+
+        meta = {
+            "mode":                   target_prefix,
+            "threshold":              thr_label,
+            "pep_cluster_file":       str(pep_file),
+            "test_cluster_label":     test_info["label"],
+            "test_cluster_purity":    round(test_info["purity"], 4),
+            "test_alleles":           sorted(test_alleles),
+            "test_all_cluster_alleles": sorted(test_all_cluster),
+            "n_folds":                len(fold_groups),
+        }
+        with open(thr_dir / "split_meta.json", "w") as fh:
+            json.dump(meta, fh, indent=2)
+
+
+# ── mode: cross_species ────────────────────────────────────────────────────────
+
+def run_mode_cross_species(
+    df_base: pd.DataFrame,
+    pep_cluster_files: list,
+    thresholds: list,
+    mode_output_dir: Path,
+):
+    """Run cross_species mode: train=HLA, test=one species, val=other non-human species."""
+    log.info(f"\n{'='*60}")
+    log.info("Mode: cross_species")
+    log.info(f"{'='*60}")
+
+    all_alleles  = set(df_base[COL_ALLELE].unique())
+    species_map  = detect_nonhuman_species(all_alleles)
+    hla_alleles  = {a for a in all_alleles if get_species_prefix(a) == "HLA"}
+
+    log.info(f"HLA alleles: {len(hla_alleles)}")
+    for sp, als in sorted(species_map.items()):
+        log.info(f"  Species {sp}: {len(als)} alleles")
+
+    if not species_map:
+        log.warning("No non-HLA species found in data. Skipping cross_species mode.")
+        return
+
+    for species_prefix, species_alleles_list in sorted(species_map.items()):
+        test_alleles = set(species_alleles_list)
+        other_nonhuman = {
+            a for sp, als in species_map.items()
+            if sp != species_prefix
+            for a in als
+        }
+        log.info(
+            f"\nSpecies {species_prefix}: test={len(test_alleles)} alleles, "
+            f"val(other non-human)={len(other_nonhuman)} alleles, "
+            f"train(HLA)={len(hla_alleles)} alleles"
+        )
+
+        for pep_file, thr_label in zip(pep_cluster_files, thresholds):
+            log.info(f"  -- threshold {thr_label} --")
+            thr_dir = mode_output_dir / species_prefix / f"threshold_{thr_label}"
+
+            df, (pep_clust_to_alleles, global_cluster_sizes,
+                 cluster_allele_rows, allele_cluster_rows, allele_total_rows) = \
+                load_threshold_data(df_base, pep_file)
+
+            # Test set-cover
+            log.info(f"  Running set-cover for TEST ({species_prefix})...")
+            sel_test_clust, _, test_st = peptide_cluster_set_cover(
+                target_alleles      = test_alleles,
+                pep_clust_to_alleles= pep_clust_to_alleles,
+                global_cluster_sizes= global_cluster_sizes,
+                target_cluster_rows = _rows_by_cluster_for_alleles(test_alleles, allele_cluster_rows),
+                cluster_allele_rows = cluster_allele_rows,
+                per_allele_min_rows = _per_allele_floor(test_alleles, allele_total_rows),
+                min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
+            )
+            excluded_test_clusters = sel_test_clust
+            log.info(
+                f"  Test set-cover: {len(sel_test_clust)} clusters selected, "
+                f"coverage={test_st['coverage_frac']:.1%}"
+            )
+
+            # Val set-cover (other non-human species)
+            val_alleles = other_nonhuman
+            if val_alleles:
+                log.info("  Running set-cover for VAL (other non-human)...")
+                sel_val_clust, _, val_st = peptide_cluster_set_cover(
+                    target_alleles      = val_alleles,
+                    pep_clust_to_alleles= pep_clust_to_alleles,
+                    global_cluster_sizes= global_cluster_sizes,
+                    target_cluster_rows = _rows_by_cluster_for_alleles(val_alleles, allele_cluster_rows),
+                    cluster_allele_rows = cluster_allele_rows,
+                    per_allele_min_rows = _per_allele_floor(val_alleles, allele_total_rows),
+                    excluded_clusters   = excluded_test_clusters,
+                    min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
+                )
+                log.info(
+                    f"  Val set-cover: {len(sel_val_clust)} clusters selected, "
+                    f"coverage={val_st['coverage_frac']:.1%}"
+                )
+            else:
+                sel_val_clust = set()
+                val_st = {"coverage_frac": 0.0}
+
+            in_test_cluster = df["cluster"].isin(excluded_test_clusters)
+            in_val_cluster  = df["cluster"].isin(sel_val_clust)
+            in_test_allele  = df[COL_ALLELE].isin(test_alleles)
+            in_val_allele   = df[COL_ALLELE].isin(val_alleles)
+
+            test_mask  = in_test_allele & in_test_cluster
+            val_mask   = in_val_allele  & in_val_cluster
+            train_mask = ~in_test_cluster & ~in_val_cluster & ~in_test_allele & ~in_val_allele
+
+            df_test  = df[test_mask].reset_index(drop=True)
+            df_val   = df[val_mask].reset_index(drop=True)
+            df_train = df[train_mask].reset_index(drop=True)
+
+            test_dir = thr_dir / "test"
+            fold_dir = thr_dir / "fold_0"
+
+            save_parquet(df_test,  test_dir / "test.parquet",    f"{species_prefix} test")
+            save_parquet(df_train, fold_dir  / "train.parquet",  f"{species_prefix} fold_0 train")
+            save_parquet(df_val,   fold_dir  / "val.parquet",    f"{species_prefix} fold_0 val")
+
+            pd.DataFrame({"allele": sorted(test_alleles)}).to_csv(
+                test_dir / "test_alleles.csv", index=False
+            )
+
+            save_binder_nonbinder_counts(df_test,  test_dir, label=f"{species_prefix} test thr={thr_label}", save_plot=True)
+            save_binder_nonbinder_counts(df_train, fold_dir, label=f"{species_prefix} train thr={thr_label}")
+            save_binder_nonbinder_counts(df_val,   fold_dir / "val_counts",
+                                         label=f"{species_prefix} val thr={thr_label}", save_plot=True)
+
+            save_peptide_cluster_summary(
+                df, excluded_test_clusters, pep_clust_to_alleles, global_cluster_sizes,
+                test_alleles, test_dir, label=f"{species_prefix} test thr={thr_label}",
+            )
+            if val_alleles:
+                save_peptide_cluster_summary(
+                    df, sel_val_clust, pep_clust_to_alleles, global_cluster_sizes,
+                    val_alleles, fold_dir, label=f"{species_prefix} val thr={thr_label}",
+                )
+
+            n_excluded = int(
+                ((in_test_cluster & ~in_test_allele) | (in_val_cluster & ~in_val_allele)).sum()
+            )
+            fold_summary = [{
+                "fold":                          0,
+                "species_test":                  species_prefix,
+                "n_test_alleles":                len(test_alleles),
+                "n_val_alleles":                 len(val_alleles),
+                "n_train_alleles":               len(hla_alleles),
+                "n_test":                        len(df_test),
+                "n_train":                       len(df_train),
+                "n_val":                         len(df_val),
+                "n_test_binders":                int((df_test["label"]  == 1).sum()),
+                "n_test_nonbinders":             int((df_test["label"]  == 0).sum()),
+                "n_train_binders":               int((df_train["label"] == 1).sum()),
+                "n_train_nonbinders":            int((df_train["label"] == 0).sum()),
+                "n_val_binders":                 int((df_val["label"]   == 1).sum()),
+                "n_val_nonbinders":              int((df_val["label"]   == 0).sum()),
+                "n_pep_clusters_test_excluded":  len(excluded_test_clusters),
+                "n_pep_clusters_val_excluded":   len(sel_val_clust),
+                "n_rows_excluded_collateral":    n_excluded,
+                "test_setcover_coverage":        round(test_st["coverage_frac"], 4),
+                "val_setcover_coverage":         round(val_st["coverage_frac"], 4),
+            }]
+            pd.DataFrame(fold_summary).to_csv(thr_dir / "fold_summary.csv", index=False)
+
+            meta = {
+                "mode":           "cross_species",
+                "species":        species_prefix,
+                "threshold":      thr_label,
+                "pep_cluster_file": str(pep_file),
+                "test_alleles":   sorted(test_alleles),
+                "val_alleles":    sorted(val_alleles),
+                "train_alleles":  sorted(hla_alleles),
+            }
+            with open(thr_dir / "split_meta.json", "w") as fh:
+                json.dump(meta, fh, indent=2)
+            log.info(f"  Saved: {thr_dir / 'fold_summary.csv'}")
+
+
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
             "Dendrogram-stratified train/val/test splits with peptide-level "
-            "leakage control."
+            "leakage control.  Modes: hla_a, hla_b, hla_c, cross_species."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument(
-        "--input_dir", type=Path, required=True,
-        help="Input directory containing the combined binder/nonbinder dataset",
-    )
-
-    p.add_argument(
-        "--pseudo_csv", type=Path, required=True,
-        help="mhc_pseudo_class1_n.csv with 49-char mhc_sequence column",
-    )
-    p.add_argument(
-        "--pep_cluster_file", type=Path, required=True,
-        help="Asgary TSV with cluster_id and sequence columns",
-    )
-    p.add_argument(
-        "--output_dir", type=Path, required=True,
-        help="Root output directory",
-    )
-    p.add_argument(
-        "--k_clusters", type=int, default=10,
-        help="Number of MHC hierarchical clusters",
-    )
-    p.add_argument(
-        "--test_cluster", type=int, default=None,
-        help="Cluster label (1-indexed) to hold out as test; default = largest cluster",
-    )
-    p.add_argument(
-        "--n_folds", type=int, default=5,
-        help="Number of CV folds from remaining (non-test) clusters",
-    )
+    p.add_argument("--input_dir",  type=Path, required=True,
+                   help="Input parquet (file or directory)")
+    p.add_argument("--pseudo_csv", type=Path, required=True,
+                   help="mhc_pseudo_class1_n.csv with 49-char mhc_sequence column")
+    p.add_argument("--pep_cluster_files", type=Path, nargs="+", required=True,
+                   help="Asgary TSV files, one per threshold (must match --thresholds order)")
+    p.add_argument("--thresholds", type=str, nargs="+", default=["50", "60", "70", "80"],
+                   help="Threshold labels matching --pep_cluster_files")
+    p.add_argument("--output_dir", type=Path, required=True,
+                   help="Root output directory")
+    p.add_argument("--mode", required=True,
+                   choices=["hla_a", "hla_b", "hla_c", "cross_species"],
+                   help="Experiment mode")
+    p.add_argument("--leaf_distance_threshold", type=float, default=25.0,
+                   help="Distance threshold for dendrogram cut (hla_* modes)")
+    p.add_argument("--n_folds", type=int, default=5,
+                   help="Max number of validation folds (hla_* modes; 3 leaf clusters per fold)")
     return p.parse_args()
 
 
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main():
-    args       = parse_args()
-    output_dir = args.output_dir
-    splits_dir = output_dir / "splits"
+    args = parse_args()
 
+    if len(args.pep_cluster_files) != len(args.thresholds):
+        raise ValueError(
+            f"--pep_cluster_files ({len(args.pep_cluster_files)}) and "
+            f"--thresholds ({len(args.thresholds)}) must have the same length."
+        )
+
+    output_dir = args.output_dir
     setup_logging(output_dir)
     log.info("=" * 60)
     log.info("dendrogram_split.py")
@@ -694,183 +1112,51 @@ def main():
 
     t_total = time.time()
 
-    # ── Step 1: load ───────────────────────────────────────────────
-    df = load(args.input_dir, output_dir)
+    # ── Step 1: load data ──────────────────────────────────────────────────────
+    df_base = load(args.input_dir, output_dir)
 
-    # ── Step 2: load peptide clusters, print coverage ──────────────────────────
-    pep_clusters = load_precomputed_peptide_clusters(args.pep_cluster_file)
-    print_peptide_cluster_coverage(df, pep_clusters)
-
-    # ── Step 3: assign cluster IDs (file + singleton fallback) ─────────────────
-    df = assign_cluster_ids(df, pep_clusters)
-
-    # ── Step 4: encode pseudosequences ─────────────────────────────────────────
-    alleles_in_data = set(df[COL_ALLELE].unique())
+    # ── Step 2: encode pseudosequences ─────────────────────────────────────────
+    alleles_in_data = set(df_base[COL_ALLELE].unique())
     X_mhc, allele_list, alleles_missing = encode_pseudosequences(
         args.pseudo_csv, alleles_in_data
     )
 
-    # ── Step 5: Ward clustering + dendrogram ───────────────────────────────────
-    _, hier_labels = run_hierarchical_clustering(
-        X_mhc, allele_list, args.k_clusters, output_dir
+    # ── Step 3: Ward clustering + dendrogram (once) ────────────────────────────
+    mhc_cluster_dir = output_dir / "mhc_clustering"
+    Z, hier_labels = run_hierarchical_clustering(
+        X_mhc, allele_list, args.leaf_distance_threshold, mhc_cluster_dir
     )
 
-    # ── Step 6: select test cluster ────────────────────────────────────────────
-    test_cluster_label = select_test_cluster(
-        hier_labels, allele_list, args.test_cluster
-    )
-    test_alleles = {
-        a for a, c in zip(allele_list, hier_labels) if c == test_cluster_label
-    }
+    # Save allele→cluster assignment (fixed across all thresholds)
+    assignments_df = pd.DataFrame({
+        "allele":          allele_list,
+        "cluster_label":   hier_labels.tolist(),
+    })
+    assignments_path = mhc_cluster_dir / "allele_cluster_assignments.csv"
+    assignments_df.to_csv(assignments_path, index=False)
+    log.info(f"Saved: {assignments_path}")
 
-    # ── Step 7: precompute peptide cluster maps ─────────────────────────────────
-    (
-        pep_clust_to_alleles,
-        global_cluster_sizes,
-        cluster_allele_rows,
-        allele_cluster_rows,
-        allele_total_rows,
-    ) = precompute_pep_cluster_maps(df)
-
-    def rows_by_cluster_for_alleles(alleles):
-        rows: dict = {}
-        for a in alleles:
-            for c, n in allele_cluster_rows.get(a, {}).items():
-                rows[c] = rows.get(c, 0) + n
-        return rows
-
-    def per_allele_floor(alleles):
-        return {
-            a: min(
-                int(np.ceil(PEPTIDE_COVER_PER_ALLELE_FRAC * allele_total_rows.get(a, 0))),
-                PEPTIDE_COVER_PER_ALLELE_CAP,
-            )
-            for a in alleles
-        }
-
-    # ── Step 8: set cover for test alleles ─────────────────────────────────────
-    log.info("\nRunning peptide cluster set cover for TEST alleles...")
-    sel_test_clust, cov_test_a, test_st = peptide_cluster_set_cover(
-        target_alleles      = test_alleles,
-        pep_clust_to_alleles= pep_clust_to_alleles,
-        global_cluster_sizes= global_cluster_sizes,
-        target_cluster_rows = rows_by_cluster_for_alleles(test_alleles),
-        cluster_allele_rows = cluster_allele_rows,
-        per_allele_min_rows = per_allele_floor(test_alleles),
-        min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
-    )
-    excluded_test_clusters = sel_test_clust
-    log.info(
-        f"  Test: {len(sel_test_clust)} pep-clusters selected, "
-        f"{len(cov_test_a)}/{len(test_alleles)} alleles covered, "
-        f"coverage={test_st['coverage_frac']:.1%}, "
-        f"target_rows={test_st['target_rows_selected']:,}"
-    )
-
-    # Save test split
-    test_mask = (
-        df[COL_ALLELE].isin(test_alleles)
-        & df["cluster"].isin(excluded_test_clusters)
-    )
-    #test_mask = df[COL_ALLELE].isin(test_alleles)
-    save_parquet(
-        df[test_mask].reset_index(drop=True),
-        splits_dir / "test" / "test.parquet",
-        "test",
-    )
-    pd.DataFrame({"allele": sorted(test_alleles)}).to_csv(
-        splits_dir / "test" / "test_alleles.csv", index=False
-    )
-    log.info(f"  Saved: {splits_dir / 'test' / 'test_alleles.csv'}")
-
-    # ── Step 9: distribute remaining clusters into fold groups ─────────────────
-    remaining_cluster_labels = sorted(set(hier_labels.tolist()) - {test_cluster_label})
-    fold_groups = merge_clusters_to_folds(
-        remaining_cluster_labels, hier_labels, allele_list, args.n_folds
-    )
-
-    # ── Step 10: per-fold set cover + splits ───────────────────────────────────
-    fold_summary = []
-    for fold_i, val_cluster_group in enumerate(fold_groups):
-        val_alleles = {
-            a for a, c in zip(allele_list, hier_labels) if c in val_cluster_group
-        }
-        log.info(
-            f"\nFold {fold_i}: val cluster group={sorted(val_cluster_group)}, "
-            f"{len(val_alleles)} val alleles"
+    # ── Step 4: dispatch to mode ───────────────────────────────────────────────
+    if args.mode in ("hla_a", "hla_b", "hla_c"):
+        prefix_map = {"hla_a": "HLAA", "hla_b": "HLAB", "hla_c": "HLAC"}
+        target_prefix = prefix_map[args.mode]
+        run_mode_hla_family(
+            df_base          = df_base,
+            allele_list      = allele_list,
+            hier_labels      = hier_labels,
+            target_prefix    = target_prefix,
+            pep_cluster_files= args.pep_cluster_files,
+            thresholds       = args.thresholds,
+            mode_output_dir  = output_dir / args.mode,
+            n_folds          = args.n_folds,
         )
-
-        sel_val_clust, cov_val_a, val_st = peptide_cluster_set_cover(
-            target_alleles      = val_alleles,
-            pep_clust_to_alleles= pep_clust_to_alleles,
-            global_cluster_sizes= global_cluster_sizes,
-            target_cluster_rows = rows_by_cluster_for_alleles(val_alleles),
-            cluster_allele_rows = cluster_allele_rows,
-            per_allele_min_rows = per_allele_floor(val_alleles),
-            excluded_clusters   = excluded_test_clusters,
-            min_target_rows     = PEPTIDE_COVER_MIN_ROWS,
+    else:  # cross_species
+        run_mode_cross_species(
+            df_base          = df_base,
+            pep_cluster_files= args.pep_cluster_files,
+            thresholds       = args.thresholds,
+            mode_output_dir  = output_dir / "cross_species",
         )
-        log.info(
-            f"  Val set cover: {len(sel_val_clust)} pep-clusters selected, "
-            f"{len(cov_val_a)}/{len(val_alleles)} alleles covered, "
-            f"coverage={val_st['coverage_frac']:.1%}, "
-            f"target_rows={val_st['target_rows_selected']:,}"
-        )
-
-        # Boolean masks
-        in_test_cluster = df["cluster"].isin(excluded_test_clusters)
-        in_val_cluster  = df["cluster"].isin(sel_val_clust)
-        in_test_allele  = df[COL_ALLELE].isin(test_alleles)
-        in_val_allele   = df[COL_ALLELE].isin(val_alleles)
-
-        val_mask   = in_val_allele & in_val_cluster
-        # val_mask = in_val_allele
-        train_mask = ~in_test_cluster & ~in_val_cluster
-        # train_mask = ~in_test_cluster & ~in_val_cluster & ~in_test_allele & ~in_val_allele
-        # Excluded rows (neither test, val, nor train):
-        #   (in_test_cluster & ~in_test_allele)  — cross-contaminated by test clusters
-        #   (in_val_cluster  & ~in_val_allele)   — cross-contaminated by val clusters
-
-        n_excluded = int(
-            ((in_test_cluster & ~in_test_allele) | (in_val_cluster & ~in_val_allele)).sum()
-        )
-        n_recycled = int(((in_test_allele | in_val_allele) & train_mask).sum())
-
-        df_val   = df[val_mask].reset_index(drop=True)
-        df_train = df[train_mask].reset_index(drop=True)
-
-        fold_dir = splits_dir / f"fold_{fold_i}"
-        save_parquet(df_train, fold_dir / "train.parquet", f"fold_{fold_i} train")
-        save_parquet(df_val,   fold_dir / "val.parquet",   f"fold_{fold_i} val")
-        log.info(
-            f"  fold_{fold_i}: train={len(df_train):,}  val={len(df_val):,}  "
-            f"excluded={n_excluded:,}  recycled_to_train={n_recycled:,}"
-        )
-
-        fold_summary.append({
-            "fold":                             fold_i,
-            "n_train":                          len(df_train),
-            "n_val":                            len(df_val),
-            "n_train_binders":                  int((df_train["label"] == 1).sum()),
-            "n_train_nonbinders":               int((df_train["label"] == 0).sum()),
-            "n_val_binders":                    int((df_val["label"] == 1).sum()),
-            "n_val_nonbinders":                 int((df_val["label"] == 0).sum()),
-            "n_val_alleles":                    len(val_alleles),
-            "n_peptide_clusters_selected":      len(sel_val_clust),
-            "n_rows_excluded_by_peptide_cover": n_excluded,
-            "n_rows_recycled_to_train":         n_recycled,
-        })
-
-    # ── Save summary outputs ───────────────────────────────────────────────────
-    summary_path = splits_dir / "fold_summary.csv"
-    pd.DataFrame(fold_summary).to_csv(summary_path, index=False)
-    log.info(f"\nSaved: {summary_path}")
-
-    meta = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
-    meta_path = splits_dir / "split_meta.json"
-    with open(meta_path, "w") as fh:
-        json.dump(meta, fh, indent=2)
-    log.info(f"Saved: {meta_path}")
 
     log.info(f"\nDone.  Total: {time.time()-t_total:.1f}s")
 
